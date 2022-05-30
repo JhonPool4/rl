@@ -3,14 +3,14 @@ from rl_agents import SAC
 import numpy as np
 
 # create environemnt
-env = CustomArmEnv(max_sim_time=300,visualize=True)
+env = CustomArmEnv(max_sim_time=300,visualize=True, fixed_init=False, fixed_target=True)
 # create agent
-agent = SAC(env=env, mem_size=10000, batch_size=500, gamma=0.99, alpha=1.0, dir_name='custom_arm\\sac', save_rate=100, print_rate=1, load_model=False)
+agent = SAC(env=env, mem_size=10000, batch_size=500, gamma=0.99, alpha=1.0, dir_name='custom_arm_2\\sac', save_rate=50, print_rate=1, load_model=False)
 # train agent
-agent.learn(n_epochs=5000)
+agent.learn(n_epochs=1000)
 
 # test agent
-#agent.test(n_attemps=5)
+#agent.test(n_attemps=10)
 """
 # create environemnt
 env = CustomArmEnv(visualize=True)
