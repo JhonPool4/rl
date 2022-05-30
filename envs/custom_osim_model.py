@@ -14,7 +14,6 @@ class CustomOsimModel(object):
         self.max_forces = []
         # create model from .osim file
         self.model = opensim.Model(model_path)
-        #self.model_state = self.model.initSystem()
         # object type control
         self.brain = opensim.PrescribedController()
 
@@ -39,8 +38,8 @@ class CustomOsimModel(object):
 
         # add controllers to model
         self.model.addController(self.brain)
-        # initialize simulation
-        self.model_state = self.model.initSystem()
+        # initialize the model and check model consistency
+        #self.state= self.model.initSystem()
         self.state = None # initial model's state
         self.sim_steps = 0 # number of simulation steps
         self.manager = None 
@@ -118,15 +117,15 @@ class CustomOsimModel(object):
         if initial_condition is not None:
             # get pre-defined position and velocity
             qpos = self.state.getQ()
-            qvel = self.state.getQDot()
+            #qvel = self.state.getQDot()
             # new joint position and velocity
             qpos[0] = initial_condition["pos"][0]
             qpos[1] = initial_condition["pos"][1]
-            qvel[0] = initial_condition["vel"][0]
-            qvel[1] = initial_condition["vel"][1]
+            #qvel[0] = initial_condition["vel"][0]
+            #qvel[1] = initial_condition["vel"][1]
             # update joint position and velocity
             self.state.setQ(qpos)
-            self.state.setU(qvel)
+            #self.state.setU(qvel)
         
         self.model.equilibrateMuscles(self.state)
         self.state.setTime(0)
