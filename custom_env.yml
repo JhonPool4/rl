@@ -1,0 +1,10 @@
+name: opensim-py38
+channels:
+  - defaults
+dependencies:
+  - python=3.8
+  - matplotlib
+  - spyder
+  - gym
+  - pandas
+  - torch
