@@ -1,22 +1,28 @@
 import os
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 from .color_print import print_info
+import csv
 
 class Logger():
-    def __init__(self, save_path, print_rate=100, resume_training=False):
+    def __init__(self, save_path, print_rate=100, save_rate=100, resume_training=False):
         self.best_score = -1000
         self.print_rate = print_rate
+        self.save_rate = save_rate
                
         # create data frame structure
         self.data_path = os.path.join(save_path, 'training_data')
-        self.column_names=['epoch','score', 'pi_loss', 'q_loss']
-        self.df = pd.DataFrame(columns=self.column_names, dtype=object) 
+        self.column_names=['epoch','score', 'pi_loss', 'q_loss', 'sim_time']
+
         # create new file
         if not resume_training:
             self.last_epoch = 0
-            self.df.to_csv(self.data_path, mode='w' ,index=False)   
+            # create new file
+            with open(self.data_path, 'w',newline='') as f:
+                # create the csv writer
+                csv_writer = csv.writer(f)
+                # write header
+                csv_writer.writerow(self.column_names)
             print_info(f"creating new training data file")
         else:
             tmp_df = pd.read_csv(self.data_path)
@@ -25,35 +31,56 @@ class Logger():
             print_info(f"loading training data from {self.data_path}")
             print_info(f"last epoch: {self.last_epoch}")
 
+        # data buffer
+        self.data = dict(zip(self.column_names, [0,[],[],[],[]]))
+        # writer handle
+        self.open_csv_handle()
 
-        self.data_buf = dict(zip(self.column_names, [0,[],[],[]]))
+    def open_csv_handle(self):
+        # file and csv handle
+        self.f = open(self.data_path, 'a', newline='')
+        self.csv_writer = csv.writer(self.f)
+    
+    def close_csv_handle(self):
+        # close file
+        self.f.close()
 
     def print_data_buf(self, epoch, verbose=False):
 
-        if epoch%self.print_rate==0 and len(self.data_buf['pi_loss'])>0:
-            mean_pi_loss = sum(self.data_buf['pi_loss'])/len(self.data_buf['pi_loss'])
-            mean_q_loss = sum(self.data_buf['q_loss'])/len(self.data_buf['q_loss'])    
-            mean_score = sum(self.data_buf['score'])/len(self.data_buf['score'])
-
-            self.data_buf['epoch']=self.last_epoch+epoch
-            self.data_buf['pi_loss'] = mean_pi_loss.item() # to avoid save in tensor format
-            self.data_buf['q_loss'] = mean_q_loss.item() # to avoid save in tensor format
-            self.data_buf['score'] = mean_score
-                 
+        if len(self.data['pi_loss'])>0:
             # save training data
-            self.df.append(self.data_buf, ignore_index=True).to_csv(self.data_path, mode='a', index=False, header=False)  
+            self.csv_writer.writerow( [ self.last_epoch+epoch, \
+                                        self.data['score'][-1], \
+                                        self.data['pi_loss'][-1].item(), \
+                                        self.data['q_loss'][-1].item(), \
+                                        self.data['sim_time'][-1]])
+            # print training data
+            if epoch%self.print_rate==0 and len(self.data['pi_loss'])>=self.print_rate:
+                # compute average values
+                mean_pi_loss = sum(self.data['pi_loss'][-self.print_rate:])/self.print_rate
+                mean_q_loss = sum(self.data['q_loss'][-self.print_rate:])/self.print_rate    
+                mean_score = sum(self.data['score'][-self.print_rate:])/self.print_rate
+                    
+                # new best score
+                if mean_score>self.best_score:
+                    self.best_score=mean_score
+                # just to print
+                if verbose:            
+                    print(f"epoch: {self.last_epoch+epoch}, best_score: {self.best_score:.1f}, avg_score: {mean_score:.1f}, pi_loss: {mean_pi_loss:.2f}, q_loss: {mean_q_loss:.2f}")   
 
-            # clean buffer
-            self.data_buf['pi_loss'] = []
-            self.data_buf['q_loss'] = []
-            self.data_buf['score'] = []
+    def reset_data_buffer(self):
+        # clean data buffer
+        self.data['pi_loss'] = []
+        self.data['q_loss'] = []
+        self.data['score'] = []   
+        self.data['sim_time']=[]         
+        # close file
+        self.close_csv_handle()
+        # open file
+        self.open_csv_handle()
+        print_info(f"training data in {self.data_path}")
 
-            # new best score
-            if mean_score>self.best_score:
-                self.best_score=mean_score
-            # just to print
-            if verbose:            
-                print(f"epoch: {self.last_epoch+epoch}, best_score: {self.best_score:.3f}, avg_score: {mean_score:.3f}, pi_loss: {mean_pi_loss:.3f}, q_loss: {mean_q_loss:.3f}")   
+
 
     def print_training_data(self):
         # read .text file
@@ -67,4 +94,3 @@ class Logger():
         axs[2].set(xlabel='timesteps', ylabel='reward')        
         axs[2].plot(new_df['score'])        
         plt.show()
-
