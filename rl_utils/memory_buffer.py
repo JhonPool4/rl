@@ -1,6 +1,7 @@
 import pandas as pd
 import random
 import torch
+import numpy as np
 import os
 from .color_print import print_info
 
@@ -30,17 +31,17 @@ class MemoryBuffer():
         column_names += self.reward_header
         column_names += self.new_obs_header
         column_names += self.done_header               
-        self.df = pd.DataFrame(columns=column_names, dtype=object) 
+        
         
         if not resume_training: # create new file             
-            self.df.to_csv(self.memory_path, mode='w' ,index=False)  
+            self.df = pd.DataFrame(columns=column_names, dtype=object) 
+            self.df.to_csv(self.memory_path, mode='w', index=False, header=True) 
             print_info(f"creating new memory buffer file")     
         else: # load file
             self.df = pd.read_csv(self.memory_path)
             self.full_memory = bool(len(self.df)>=self.mem_size)
             self.allow_sample = bool(len(self.df)>=self.batch_size)
             self.mem_index = len(self.df)%self.mem_size
-            #del tmp_df
             print_info(f"loading memory buffer from {self.memory_path}")
             print_info(f"memomry index: {self.mem_index}")
             print_info(f"allow sample: {self.allow_sample}")
@@ -83,11 +84,20 @@ class MemoryBuffer():
         else:
             max_mem = min(self.mem_index, self.mem_size)
         # sample memory
-        skip = sorted(random.sample(range(1,max_mem+1),max_mem-batch_size))
-        batch_mem = pd.read_csv(self.memory_path,skiprows=skip)        
+        batch_index = random.sample(range(max_mem),batch_size)
+        batch_mem = self.df.loc[batch_index]
+        #batch_mem = pd.read_csv(self.memory_path,skiprows=skip)    
+        
+        #print(f"mem_index: {self.mem_index}, max_mem: {max_mem}, batch: {batch_index}")
+        #print(self.df.loc[batch_index, self.obs_header].values)    
 
-        return  torch.as_tensor(batch_mem[self.obs_header].values, dtype=torch.float), \
-                torch.as_tensor(batch_mem[self.act_header].values, dtype=torch.float), \
-                torch.as_tensor(batch_mem[self.reward_header].values, dtype=torch.float), \
-                torch.as_tensor(batch_mem[self.new_obs_header].values, dtype=torch.float), \
-                torch.as_tensor(batch_mem[self.done_header].values, dtype=torch.float)
+
+        return  torch.as_tensor(np.array(batch_mem[self.obs_header], dtype=float), dtype=torch.float), \
+                torch.as_tensor(np.array(batch_mem[self.act_header], dtype=float), dtype=torch.float), \
+                torch.as_tensor(np.array(batch_mem[self.reward_header], dtype=float), dtype=torch.float), \
+                torch.as_tensor(np.array(batch_mem[self.new_obs_header], dtype=float), dtype=torch.float), \
+                torch.as_tensor(np.array(batch_mem[self.done_header], dtype=float), dtype=torch.float)
+
+    def save_memory_buffer(self):
+        self.df.to_csv(self.memory_path, mode='w', index=False, header=True)
+        print_info(f"memory buffer in {self.memory_path}")

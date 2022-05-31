@@ -100,7 +100,7 @@ class ContinuousCartPoleEnv():
         if self.render_flag:
             self.render()
 
-        return np.array(self.state), reward, done, {}
+        return np.array(self.state), reward, done, {'sim_time':self.sim_time}
 
     def reset(self):
         self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
