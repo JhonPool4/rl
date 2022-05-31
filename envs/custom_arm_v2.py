@@ -1,6 +1,8 @@
 import os
 import numpy as np
 from gym import spaces
+
+from rl_utils.color_print import print_info
 from .custom_osim_model import CustomOsimModel
 from rl_utils import print_warning
 import opensim
@@ -8,9 +10,12 @@ import random
 
 # how to create a model from scratch
 # https://simtk-confluence.stanford.edu:8443/display/OpenSim/Building+a+Dynamic+Walker+in+Matlab
+
 # how to add fatigue to a muscle model
 # https://simtk-confluence.stanford.edu:8443/display/OpenSim/Creating+a+Customized+Muscle+Model
 
+# useful commands
+#https://simtk-confluence.stanford.edu:8443/display/OpenSim/Common+Scripting+Commands
 
 # joint range
 _MAX_SHOULDER_POS = np.deg2rad(180)
@@ -24,7 +29,8 @@ class CustomArmEnv():
 
     def __init__(self, max_sim_time=300, fixed_target=True, fixed_init=True, visualize=False, integrator_accuracy = 5e-5, step_size=0.01):
         # description of arm model
-        model_path = os.path.join(os.path.dirname(__file__), '../models/custom_arm.osim.xml')    
+        #model_path = os.path.join(os.path.dirname(__file__), '../models/custom_arm.osim.xml')    
+        model_path = os.path.join(os.path.dirname(__file__), '../models/arm2dof6musc.osim')    
         # create osim model
         self.osim_model = CustomOsimModel(model_path, visualize, integrator_accuracy, step_size)
 
@@ -113,16 +119,16 @@ class CustomArmEnv():
             print_warning(f"{obs}")
             obs = np.nan_to_num(obs)
             
-            return obs, -10, True, {}
+            return obs, -10, True, {'sim_time':self.osim_model.sim_steps}
         
         if not self.osim_model.sim_steps < self.max_sim_time:
-            return obs, reward, True, {}
+            return obs, reward, True, {'sim_time':self.osim_model.sim_steps}
 
         if not (_MIN_ELBOW_POS<=state_dict["joint_pos"]["r_elbow"]<=_MAX_ELBOW_POS) or not (_MIN_SHOULDER_POS<=state_dict["joint_pos"]["r_shoulder"]<=_MAX_SHOULDER_POS):
             #print_warning(f"terminal state for weird position")
-            return obs, -1, False, {}
+            return obs, -1, False, {'sim_time':self.osim_model.sim_steps}
 
-        return obs, reward, False, {}
+        return obs, reward, False, {'sim_time':self.osim_model.sim_steps}
 
     def set_shpere_position(self, pos_des):
         state = opensim.State(self.osim_model.state)
@@ -137,12 +143,14 @@ class CustomArmEnv():
     def reset(self):
         # compute initial configuration
         self.initial_condition=self.compute_init_position()
+        #print_info(f"init:{np.rad2deg(self.initial_condition['pos'])}")
         # reset model variables
         self.osim_model.reset(initial_condition=self.initial_condition)      
         # get model states
         state_dict = self.osim_model.compute_model_states()
         # get environemnt observations
         obs=self.get_observations(state_dict=state_dict)
+        
         # set sphere position
         self.set_shpere_position(self.pos_des)
 
