@@ -113,20 +113,12 @@ class CustomOsimModel(object):
         self.reset_manager()
 
     def reset(self, initial_condition=None):
-        self.state = self.model.initializeState()
         if initial_condition is not None:
-            # get pre-defined position and velocity
-            qpos = self.state.getQ()
-            #qvel = self.state.getQDot()
-            # new joint position and velocity
-            qpos[0] = initial_condition["pos"][0]
-            qpos[1] = initial_condition["pos"][1]
-            #qvel[0] = initial_condition["vel"][0]
-            #qvel[1] = initial_condition["vel"][1]
-            # update joint position and velocity
-            self.state.setQ(qpos)
-            #self.state.setU(qvel)
+            self.jointSet.get("r_shoulder").get_coordinates(0).setDefaultValue(initial_condition["pos"][0])
+            self.jointSet.get("r_elbow").get_coordinates(0).setDefaultValue(initial_condition["pos"][1])
         
+        self.state = self.model.initializeState()
+
         self.model.equilibrateMuscles(self.state)
         self.state.setTime(0)
         self.sim_steps = 0
