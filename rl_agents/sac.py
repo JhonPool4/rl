@@ -39,7 +39,7 @@ class SAC():
         # create buffer
         self.mem_buffer = MemoryBuffer(self.obs_dim, self.act_dim, mem_size, batch_size, load_model, self.save_path)
         # create logger
-        self.logger = Logger(self.save_path, print_rate=print_rate, resume_training=load_model)
+        self.logger = Logger(self.save_path, print_rate=print_rate, save_rate=save_rate, resume_training=load_model)
 
         # create Q networks: (i) target and (ii) predict
         self.q_target = DoubleQNetwork(self.obs_dim, self.act_dim)
@@ -142,8 +142,8 @@ class SAC():
         self.alpha = self.log_alpha.exp()       
 
         # just to print
-        self.logger.data_buf['pi_loss'].append(pi_loss.detach())
-        self.logger.data_buf['q_loss'].append(q_loss.detach())
+        self.logger.data['pi_loss'].append(pi_loss.detach())
+        self.logger.data['q_loss'].append(q_loss.detach())
 
 
 
@@ -155,8 +155,6 @@ class SAC():
         # same networks
         self.update_target_networks(tau=1)
         for epoch in range(1,n_epochs+1):
-            # create environemnt
-            #self.env = CustomArmEnv(visualize=True)
             # reset environment
             obs, reward, done = self.env.reset(), 0, False
             score = 0
@@ -164,7 +162,7 @@ class SAC():
                 # get action
                 act, _ = self.pi_net.predict_action(torch.tensor(obs, dtype=torch.float32)) 
                 # interact with the environment
-                new_obs, reward, done, _ = self.env.step(act.detach().numpy())
+                new_obs, reward, done, info = self.env.step(act.detach().numpy())
 
                 # store transition in memory
                 self.mem_buffer.store_transition(obs, act.detach().numpy(), reward, new_obs, done)
@@ -178,16 +176,16 @@ class SAC():
                     self.update_agent_parameters()
                     self.update_target_networks(tau=0.05)                    
 
-            # delete environemnt
-            #del self.env
             # just to print data
-            self.logger.data_buf['score'].append(score)
+            self.logger.data['score'].append(score)
+            self.logger.data['sim_time'].append(info['sim_time'])
             self.logger.print_data_buf(epoch=epoch, verbose=True)
 
             # save neural network parameters
             if epoch%self.save_rate==0:
                 self.save_agent_parameters(save_path=self.save_path, epoch=epoch+self.logger.last_epoch)
-        
+                self.logger.reset_data_buffer()
+                self.mem_buffer.save_memory_buffer()        
         #self.logger.print_training_data()
 
 
