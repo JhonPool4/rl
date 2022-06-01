@@ -202,7 +202,7 @@ class SAC():
                 # get action
                 act, _ = self.pi_net.predict_action(torch.tensor(obs, dtype=torch.float32)) 
                 # interact with the environment
-                new_obs, reward, done, _ = self.env.step(act.detach().numpy())
+                new_obs, reward, done, info = self.env.step(act.detach().numpy())
                 #render
                 #self.env.render()
                 # update observation
@@ -210,4 +210,4 @@ class SAC():
                 # just to print
                 score +=reward        
             
-            print(f"attemp: {attemp+1}, score: {score}")
+            print(f"attemp: {attemp+1}, score: {score}, sim_time: {info['sim_time']}")
