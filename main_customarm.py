@@ -1,11 +1,11 @@
-from envs import CustomArmEnv
+from envs import ArmEnv2D
 from rl_agents import SAC
 import numpy as np
 
 # create environemnt
-env = CustomArmEnv(max_sim_time=300,visualize=True, fixed_init=False, fixed_target=True)
+env = ArmEnv2D(sim_time=3, visualize=True, fixed_init=False, fixed_target=True)
 # create agent
-agent = SAC(env=env, mem_size=10000, batch_size=500, gamma=0.99, alpha=1.0, dir_name='custom_arm_2\\sac', save_rate=50, print_rate=1, load_model=False)
+agent = SAC(env=env, mem_size=10000, batch_size=500, gamma=0.99, alpha=1.0, dir_name='arm\\sac', save_rate=200, print_rate=1, load_model=False)
 # train agent
 agent.learn(n_epochs=1000)
 
