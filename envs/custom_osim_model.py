@@ -1,152 +1,95 @@
 import numpy as np
-import opensim
+import opensim as osim
 from rl_utils import print_warning
 
-
-
-
 class CustomOsimModel(object):
-
     def __init__(self, model_path=None, visualize=False, integrator_accuracy = 5e-5, step_size=0.01):
         # simulation parameters
-        self.integrator_accuracy = integrator_accuracy
-        self.step_size = step_size
-        self.max_forces = []
+        self._int_acc = integrator_accuracy
+        self._step_size = step_size
         # create model from .osim file
-        self.model = opensim.Model(model_path)
-        # object type control
-        self.brain = opensim.PrescribedController()
-
+        self._model = osim.Model(model_path)
         # enable the visualizer
-        self.model.setUseVisualizer(visualize)
+        self._model.setUseVisualizer(visualize)
+
+        # get handles for model parameters
+        self._muscles = self._model.getMuscles() # get muscle
+        self._joints = self._model.getJointSet() # get joints
+        self._markers = self._model.getMarkerSet() # get markers
+
+        # PrescribedController: https://simtk.org/api_docs/opensim/api_docs/classOpenSim_1_1PrescribedController.html
+        # basic ontrol template
+        self._brain = osim.PrescribedController()
+        # quantity of muscles
+        self._n_muscles = self._muscles.getSize()
+
+        # Add muscle-actuators with constant-type function
+        for idx in range(self._n_muscles):
+            self._brain.addActuator(self._muscles.get(idx)) # add actuator for each muscle
+            self._brain.prescribeControlForActuator(idx, osim.Constant(1.0)) # add a function to each muscle-actuator
+
+        # add muscle's controllers to model
+        self._model.addController(self._brain)
+        # get func handle
+        self._control_functions= self._brain.get_ControlFunctions()
         
-        # handle model parameters
-        self.muscleSet = self.model.getMuscles()
-        self.forceSet = self.model.getForceSet()
-        self.bodySet = self.model.getBodySet()
-        self.jointSet = self.model.getJointSet()
-        self.markerSet = self.model.getMarkerSet()
-        self.contactGeometrySet = self.model.getContactGeometrySet()
-
-        # Add actuators as constant functions.
-        for j in range(self.muscleSet.getSize()):
-            func = opensim.Constant(1.0)
-            self.brain.addActuator(self.muscleSet.get(j))
-            self.brain.prescribeControlForActuator(j, func)
-
-            self.max_forces.append(self.muscleSet.get(j).getMaxIsometricForce())
-
-        # add controllers to model
-        self.model.addController(self.brain)
-        # initialize the model and check model consistency
-        #self.state= self.model.initSystem()
-        self.state = None # initial model's state
-        self.sim_steps = 0 # number of simulation steps
-        self.manager = None 
-        self.n_inputs = self.muscleSet.getSize()
+        # initialize the model and check model consistency (important!)
+        self._model.initSystem()        
+        self._state = None # model's state
+        self._manager = None # model's manager
+        self._sim_timesteps = 0 # number of simulation steps      
         
+    def update_joint_limits(self, joint_list, max_list, min_list):
+        for joint_name in joint_list:
+            self._joints.get(joint_name).upd_coordinates(0).setRangeMax(max_list[joint_name]['pos'])
+            self._joints.get(joint_name).upd_coordinates(0).setRangeMin(min_list[joint_name]['pos'])
+            self._joints.get(joint_name).upd_coordinates(0).setDefaultSpeedValue(0.0)
+            self._joints.get(joint_name).upd_coordinates(0).setDefaultClamped(True)
 
     def actuate(self, action):
         """
-        @info: apply action to model
+        @info: apply stimulus to muscles
         """
-        if np.any(np.isnan(action)):
+        if np.any(np.isnan(action)): # safety condition
             action = np.nan_to_num(action)
             action = np.clip(action, 0, 1)
-            print_warning(f"nan action maps to [0 1]")
             
-        brain = opensim.PrescribedController.safeDownCast(self.model.getControllerSet().get(0))
-        functionSet = brain.get_ControlFunctions()
-
         # apply action
-        for j in range(functionSet.getSize()):
-            func = opensim.Constant.safeDownCast(functionSet.get(j))
-            func.setValue( float(action[j]) )
-
-    def compute_model_states(self):
-        self.model.realizeAcceleration(self.state)
-
-        res = {} # dictionary with model states
-
-        ## Joints
-        res["joint_pos"] = {}
-        #res["joint_vel"] = {}
-        #res["joint_acc"] = {}
-        for i in range(self.jointSet.getSize()):
-            joint = self.jointSet.get(i)
-            name = joint.getName()
-            res["joint_pos"][name] = [joint.get_coordinates(i).getValue(self.state) for i in range(joint.numCoordinates())]
-            #res["joint_vel"][name] = [joint.get_coordinates(i).getSpeedValue(self.state) for i in range(joint.numCoordinates())]
-            #res["joint_acc"][name] = [joint.get_coordinates(i).getAccelerationValue(self.state) for i in range(joint.numCoordinates())]
-
-        ## Muscles
-        res["muscles"] = {}
-        for i in range(self.muscleSet.getSize()):
-            muscle = self.muscleSet.get(i)
-            name = muscle.getName()
-            res["muscles"][name] = {}
-            res["muscles"][name]["activation"] = muscle.getActivation(self.state)
-            res["muscles"][name]["fiber_length"] = muscle.getFiberLength(self.state)
-            #res["muscles"][name]["fiber_velocity"] = muscle.getFiberVelocity(self.state)
-            #res["muscles"][name]["fiber_force"] = muscle.getFiberForce(self.state)
-        
-        ## Markers
-        res["markers"] = {}
-        for i in range(self.markerSet.getSize()):
-            marker = self.markerSet.get(i)
-            name = marker.getName()
-            res["markers"][name] = {}
-            res["markers"][name]["pos"] = [marker.getLocationInGround(self.state)[i] for i in range(3)]
-            #res["markers"][name]["vel"] = [marker.getVelocityInGround(self.state)[i] for i in range(3)]
-            #res["markers"][name]["acc"] = [marker.getAccelerationInGround(self.state)[i] for i in range(3)]
-
-        return res
+        for idx in range(self._control_functions.getSize()):
+            # get control function of actuator "idx"
+            func = osim.Constant.safeDownCast(self._control_functions.get(idx))
+            # apply action
+            func.setValue( float(action[idx]) )
 
     def reset_manager(self):
-        self.manager = opensim.Manager(self.model)
-        self.manager.setIntegratorAccuracy(self.integrator_accuracy)
-        self.manager.initialize(self.state)
+        self._manager = osim.Manager(self._model)
+        self._manager.setIntegratorAccuracy(self._int_acc)
+        self._manager.initialize(self._state)
 
-    def set_state(self, state):
-        self.state = state
-        self.sim_steps = int(self.state.getTime() / self.step_size) # TODO: remove istep altogether
+
+    def reset(self, init_pos=None):
+        # set initial position
+        if init_pos is not None:
+            self._joints.get("r_shoulder").upd_coordinates(0).setDefaultValue(init_pos["r_shoulder"])
+            self._joints.get("r_elbow").upd_coordinates(0).setDefaultValue(init_pos["r_elbow"])
+        # compute initial state (important!)
+        self._state = self._model.initializeState()
+        # compute length of fibers based on the state (important!)
+        self._model.equilibrateMuscles(self._state)
+        # simulation parameters
+        self._sim_timesteps = 0
+        self._state.setTime(self._sim_timesteps)
+        # forward dynamics manager
         self.reset_manager()
 
-    def reset(self, initial_condition=None):
-        if initial_condition is not None:
-            self.jointSet.get("r_shoulder").get_coordinates(0).setDefaultValue(initial_condition["pos"][0])
-            self.jointSet.get("r_elbow").get_coordinates(0).setDefaultValue(initial_condition["pos"][1])
-        
-        self.state = self.model.initializeState()
-
-        self.model.equilibrateMuscles(self.state)
-        self.state.setTime(0)
-        self.sim_steps = 0
-
-        self.reset_manager()
 
     def integrate(self):
         # update simulation step
-        self.sim_steps = self.sim_steps + 1
+        self._sim_timesteps = self._sim_timesteps + 1
 
         # compute next dynamic configuration
-        self.state = self.manager.integrate(self.step_size*self.sim_steps)
-        """
-        # clip observations
-        qpos = self.state.getQ() 
-        print_warning(f" obs: {np.rad2deg(qpos[0])}, {np.rad2deg(qpos[1])}")
-        
-        # for normal motion
-        if not (_MIN_ELBOW_POS<=qpos[1]<=_MAX_ELBOW_POS) or not (_MIN_SHOULDER_POS<=qpos[0]<=_MAX_SHOULDER_POS): 
-            print_warning(f"clipping obs: {qpos}")
-            qpos[1] = np.clip(qpos[1], _MIN_ELBOW_POS, _MAX_ELBOW_POS)
-            qpos[0] = np.clip(qpos[0], _MIN_SHOULDER_POS, _MAX_SHOULDER_POS)
+        self._state = self._manager.integrate(self._step_size*self._sim_timesteps)        
 
-            self.state.setQ(qpos)
-            #self.model.equilibrateMuscles(self.state)
-            self.reset_manager()
-        
-        """
 
     def step(self, action):   
         self.actuate(action)
