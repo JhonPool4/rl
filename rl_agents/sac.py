@@ -2,7 +2,6 @@ from rl_utils import GaussianPolicyNetwork
 from rl_utils import DoubleQNetwork
 from rl_utils import MemoryBuffer, Logger
 from rl_utils import print_info
-from envs import CustomArmEnv
 import torch
 from copy import copy
 import os
