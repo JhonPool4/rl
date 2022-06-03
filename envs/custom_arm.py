@@ -30,23 +30,23 @@ _MAX_LIST = {"pos_des":{'x':0.5, 'y':0.8}, \
             "r_shoulder":{'pos':np.deg2rad(180), 'vel': 1}, \
             "r_elbow":{'pos':np.deg2rad(150), 'vel': 1}, \
             "r_radius_styloid":{'x':0.5, 'y':0.8} , \
-            "TRIlong": {"activation":1},\
-            "TRIlat": {"activation":1},\
-            "TRImed": {"activation":1},\
-            "BIClong": {"activation":1},\
-            "BICshort": {"activation":1},\
-            "BRA": {"activation":1}}
+            "TRIlong": {"act":1},\
+            "TRIlat": {"act":1},\
+            "TRImed": {"act":1},\
+            "BIClong": {"act":1},\
+            "BICshort": {"act":1},\
+            "BRA": {"act":1}}
 
 _MIN_LIST = {"pos_des":{'x':-0.5, 'y':0.27}, \
              "r_shoulder":{'pos':np.deg2rad(-90), 'vel': -1}, \
              "r_elbow":{'pos':np.deg2rad(0), 'vel': -1}, \
              "r_radius_styloid":{'x':-0.5, 'y':0.27}, \
-            "TRIlong": {"activation":0},\
-            "TRIlat": {"activation":0},\
-            "TRImed": {"activation":0},\
-            "BIClong": {"activation":0},\
-            "BICshort": {"activation":0},\
-            "BRA": {"activation":0}}             
+            "TRIlong": {"act":0},\
+            "TRIlat": {"act":0},\
+            "TRImed": {"act":0},\
+            "BIClong": {"act":0},\
+            "BICshort": {"act":0},\
+            "BRA": {"act":0}}             
 
 _POS_DES = {'x':0.2, 'y':0.6}
 _INIT_POS = {'r_shoulder':-np.pi/2, 'r_elbow':0}
@@ -73,7 +73,7 @@ class ArmEnv2D():
         # RL environemnt parameters
         self.fixed_target = fixed_target
         self.fixed_init = fixed_init    
-        self.pos_des = np.array([_POS_DES["x"], _POS_DES["y"]])
+        self.pos_des = None # desired wrist position
         self.initial_condition=None # initial joint configuration
 
         # observation space
@@ -98,8 +98,8 @@ class ArmEnv2D():
         # observation list
         obs = []
 
-        # desired pos
-        for pos in _POS_DES.values():
+        # desired wrist position
+        for pos in self.pos_des:
             obs.append(pos)
         
         # joint position
@@ -132,7 +132,15 @@ class ArmEnv2D():
         else:
             return {joint_name:_INIT_POS[joint_name] for joint_name in _JOINT_LIST}
 
+    def get_goal(self):
+        if self.fixed_target:
+            return [_POS_DES["x"], _POS_DES["y"]]
+        else:
+            return [uniform(0,1, 0.5), uniform(0.3, 0.7)] # x and y
+
     def reset(self):
+        # compute wrist position
+        self.pos_des = self.get_goal()
         # reset model variables
         self.osim_model.reset(init_pos=self.initial_joint_configuration())      
         # get observations and normalize
