@@ -1,3 +1,4 @@
+from lib2to3.pgen2.literals import simple_escapes
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -55,18 +56,19 @@ class Logger():
                                         self.data['q_loss'][-1].item(), \
                                         self.data['sim_time'][-1]])
             # print training data
+            # new best score
+            if self.data['score'][-1]>self.best_score:
+                self.best_score=self.data['score'][-1]
             if epoch%self.print_rate==0 and len(self.data['pi_loss'])>=self.print_rate:
                 # compute average values
                 mean_pi_loss = sum(self.data['pi_loss'][-self.print_rate:])/self.print_rate
                 mean_q_loss = sum(self.data['q_loss'][-self.print_rate:])/self.print_rate    
-                mean_score = sum(self.data['score'][-self.print_rate:])/self.print_rate
+                mean_score = sum(self.data['score'])/len(self.data['score'])
                     
-                # new best score
-                if mean_score>self.best_score:
-                    self.best_score=mean_score
+                
                 # just to print
                 if verbose:            
-                    print(f"epoch: {self.last_epoch+epoch}, best_score: {self.best_score:.1f}, avg_score: {mean_score:.1f}, pi_loss: {mean_pi_loss:.2f}, q_loss: {mean_q_loss:.2f}")   
+                    print(f"epoch: {self.last_epoch+epoch}, t: {self.data['sim_time'][-1]}, s: {self.data['score'][-1]:.1f}, avg_s: {mean_score:.1f}, best_s: {self.best_score:.1f}, pi_l: {mean_pi_loss:.2f}, q_l: {mean_q_loss:.2f}")   
 
     def reset_data_buffer(self):
         # clean data buffer
