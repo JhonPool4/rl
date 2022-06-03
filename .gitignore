@@ -1,7 +1,8 @@
 envs/__pycache__/
-models/
+#models/
 rl_agents/__pycache__
 rl_utils/__pycache__
 #trained_models/
 err.log
 out.log
+opensim.log
