@@ -2,6 +2,6 @@ envs/__pycache__/
 models/
 rl_agents/__pycache__
 rl_utils/__pycache__
-trained_models/
+#trained_models/
 err.log
 out.log
