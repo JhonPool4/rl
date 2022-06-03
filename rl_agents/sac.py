@@ -181,7 +181,7 @@ class SAC():
             self.logger.print_data_buf(epoch=epoch, verbose=True)
 
             # save neural network parameters
-            if epoch%self.save_rate==0:
+            if (epoch+self.logger.last_epoch)%self.save_rate==0:
                 self.save_agent_parameters(save_path=self.save_path, epoch=epoch+self.logger.last_epoch)
                 self.logger.reset_data_buffer()
                 self.mem_buffer.save_memory_buffer()        
