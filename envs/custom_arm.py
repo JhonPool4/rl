@@ -155,11 +155,11 @@ class ArmEnv2D():
         distance = ((obs[6]-obs[0])**2 + (obs[7]-obs[1])**2)**0.5
         # reward system
         reward = self.gaussian_reward(metric=distance, max_error=0.3) # reward to achieve desired position 
-        reward -= 0.001*sum(action) # punishment for inefficient motion
+        reward -= 0.01*sum(action) # punishment for inefficient motion
 
         # check is there are nan values
         if np.isnan(obs).any(): 
-            print_warning(f"terminal state for nan observations")
+            #print_warning(f"terminal state for nan observations")
             obs = np.nan_to_num(obs)
             obs = np.clip(obs, 0, 1)
             return obs, _REWARD['nan'], True, {'sim_time':self.osim_model._sim_timesteps}
@@ -170,7 +170,7 @@ class ArmEnv2D():
 
         # terminal condition: out of bounds (joint pos or vel)
         if not np.logical_and(np.all(np.array(obs)<=1), np.all(np.array(obs)>=0)):
-            print_warning(f"terminal state for weird joint position or velocity")
+            #print_warning(f"terminal state for weird joint position or velocity")
             return obs, _REWARD['weird_joint_pos'], True, {'sim_time':self.osim_model._sim_timesteps}
 
         # all fine
