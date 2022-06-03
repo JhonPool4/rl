@@ -5,7 +5,7 @@ import numpy as np
 # create environemnt
 env = ArmEnv2D(sim_time=3, visualize=True, fixed_init=False, fixed_target=True)
 # create agent
-agent = SAC(env=env, mem_size=10000, batch_size=500, gamma=0.99, alpha=1.0, dir_name='arm\\sac', save_rate=200, print_rate=1, load_model=False)
+agent = SAC(env=env, mem_size=10000, batch_size=500, gamma=0.99, alpha=1.0, dir_name='arm_3\\sac', save_rate=200, print_rate=1, load_model=True)
 # train agent
 agent.learn(n_epochs=1000)
 
