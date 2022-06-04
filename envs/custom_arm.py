@@ -155,7 +155,7 @@ class ArmEnv2D():
     def gaussian_reward(self, metric, max_error):
         mean = 0
         std = max_error/2
-        return (1/(2*np.pi*std**2)**0.5)*np.exp(-(metric-mean)**2/(2*std**2))
+        return np.exp(-(metric-mean)**2/(2*std**2))        
 
 
     def step(self, action):
