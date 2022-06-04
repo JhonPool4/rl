@@ -2,7 +2,6 @@ import os
 import numpy as np
 from random import uniform
 from gym import spaces
-
 from rl_utils.color_print import print_warning, print_info
 from envs.custom_osim_model import CustomOsimModel
 
@@ -54,17 +53,20 @@ _REWARD = {'nan':-5, 'weird_joint_pos':-1}
 
 class ArmEnv2D():
 
-    def __init__(self, sim_time=3, fixed_target=True, fixed_init=True, visualize=False, integrator_accuracy = 1e-5, step_size=1e-2):
+    def __init__(self, sim_time=3, fixed_target=True, fixed_init=True, show_goal=False, visualize=False, integrator_accuracy = 1e-5, step_size=1e-2):
         # load arm model
         model_path = os.path.join(os.path.dirname(__file__), '../models/arm2dof6musc.osim')    
         # create osim model
         self.osim_model = CustomOsimModel(model_path=model_path,\
                                             visualize=visualize,\
                                             integrator_accuracy=integrator_accuracy,\
-                                            step_size=step_size)
+                                            step_size=step_size, \
+                                            add_bullet=show_goal)
+
         # simulation parameters
         self.max_timesteps = sim_time/step_size
         self.sim_timesteps = 0
+        self.show_goal = show_goal
 
         # model configuration
         self.osim_model.update_joint_limits(joint_list=_JOINT_LIST,\
@@ -99,7 +101,7 @@ class ArmEnv2D():
         obs = []
 
         # desired wrist position
-        for pos in self.pos_des:
+        for pos in self.pos_des.values():
             obs.append(pos)
         
         # joint position
@@ -134,15 +136,18 @@ class ArmEnv2D():
 
     def get_goal(self):
         if self.fixed_target:
-            return [_POS_DES["x"], _POS_DES["y"]]
+            return _POS_DES
         else:
-            return [uniform(0,1, 0.5), uniform(0.3, 0.7)] # x and y
+            return dict(zip(_AXIS_LIST, [uniform(0.1, 0.5), uniform(0.3, 0.7)])) # x and y
 
     def reset(self):
         # compute wrist position
-        self.pos_des = self.get_goal()
+        self.pos_des = self.get_goal() # dictionary
+
         # reset model variables
-        self.osim_model.reset(init_pos=self.initial_joint_configuration())      
+        self.osim_model.reset(init_pos=self.initial_joint_configuration(), \
+                                bullet_pos=self.pos_des) 
+
         # get observations and normalize
         return self.normalize_observations(self.get_observations())
 
@@ -164,6 +169,8 @@ class ArmEnv2D():
         # reward system
         reward = self.gaussian_reward(metric=distance, max_error=0.3) # reward to achieve desired position 
         reward -= 0.01*sum(action) # punishment for inefficient motion
+       
+        # terminal condition: max simulation steps reached
 
         # check is there are nan values
         if np.isnan(obs).any(): 
@@ -171,8 +178,7 @@ class ArmEnv2D():
             obs = np.nan_to_num(obs)
             obs = np.clip(obs, 0, 1)
             return obs, _REWARD['nan'], True, {'sim_time':self.osim_model._sim_timesteps}
-        
-        # terminal condition: max simulation steps reached
+
         if not self.osim_model._sim_timesteps < self.max_timesteps:
             return obs, reward, True, {'sim_time':self.osim_model._sim_timesteps}
 
