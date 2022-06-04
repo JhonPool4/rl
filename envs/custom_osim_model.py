@@ -8,10 +8,11 @@ class CustomOsimModel(object):
         self._int_acc = integrator_accuracy
         self._step_size = step_size
         self._add_bullet = add_bullet
+        self._visualize = visualize
         # create model from .osim file
         self._model = osim.Model(model_path)
         # enable the visualizer
-        self._model.setUseVisualizer(visualize)
+        self._model.setUseVisualizer(self._visualize)
 
         # get handles for model parameters
         self._muscles = self._model.getMuscles() # get muscle
@@ -35,7 +36,7 @@ class CustomOsimModel(object):
         self._control_functions= self._brain.get_ControlFunctions()
         
 
-        if self._add_bullet:
+        if self._visualize and self._add_bullet:
             # Body: https://simtk.org/api_docs/opensim/api_docs/classOpenSim_1_1Body.html
             # humerus link
             goal_body = osim.Body("goal_body", # name
@@ -101,7 +102,7 @@ class CustomOsimModel(object):
         
         # compute initial state (important!)
         self._state = self._model.initializeState()
-        if bullet_pos is not None:
+        if self._visualize and self._add_bullet and bullet_pos is not None:
             #_joints = self._model.getJointSet() # get joints
             #goal_joint = self._model.getJointSet().get("goal_joint")
             self.goal_joint.get_coordinates(1).setValue(self._state, bullet_pos['x'], False)
