@@ -68,7 +68,8 @@ class Logger():
                 
                 # just to print
                 if verbose:            
-                    print(f"epoch: {self.last_epoch+epoch}, t: {self.data['sim_time'][-1]}, s: {self.data['score'][-1]:.1f}, avg_s: {mean_score:.1f}, best_s: {self.best_score:.1f}, pi_l: {mean_pi_loss:.2f}, q_l: {mean_q_loss:.2f}")   
+                    print(f"epoch: {self.last_epoch+epoch}, t: {self.data['sim_time'][-1]}, s: {self.data['score'][-1]:.1f}, avg_s: {mean_score:.1f}, best_s: {self.best_score:.1f}, pi_l: {mean_pi_loss:.2f}, q_l: {mean_q_loss:.2f}") 
+                    print(f"")  
 
     def reset_data_buffer(self):
         # clean data buffer
