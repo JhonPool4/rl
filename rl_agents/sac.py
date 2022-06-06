@@ -147,7 +147,7 @@ class SAC():
 
 
 
-    def learn(self, n_epochs):       
+    def learn(self, n_epochs, verbose=False):       
         print(f"================================")
         print(f"\tstaring training")
         print(f"================================")
@@ -155,7 +155,7 @@ class SAC():
         self.update_target_networks(tau=1)
         for epoch in range(1,n_epochs+1):
             # reset environment
-            obs, reward, done = self.env.reset(), 0, False
+            obs, reward, done = self.env.reset(verbose=verbose), 0, False
             score = 0
             while not done:
                 # get action
@@ -178,7 +178,7 @@ class SAC():
             # just to print data
             self.logger.data['score'].append(score)
             self.logger.data['sim_time'].append(info['sim_time'])
-            self.logger.print_data_buf(epoch=epoch, verbose=True)
+            self.logger.print_data_buf(epoch=epoch, verbose=verbose)
 
             # save neural network parameters
             if (epoch+self.logger.last_epoch)%self.save_rate==0:
