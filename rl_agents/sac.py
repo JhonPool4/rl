@@ -210,3 +210,4 @@ class SAC():
                 score +=reward        
             
             print(f"attemp: {attemp+1}, score: {score}, sim_time: {info['sim_time']}")
+            print(f"")
