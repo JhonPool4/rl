@@ -53,7 +53,14 @@ _REWARD = {'nan':-5, 'weird_joint_pos':-1}
 
 class ArmEnv2D():
 
-    def __init__(self, sim_time=3, fixed_target=True, fixed_init=True, show_goal=False, visualize=False, integrator_accuracy = 1e-5, step_size=1e-2):
+    def __init__(self, sim_time=3,
+                 fixed_target=True, 
+                 fixed_init=True, 
+                 show_goal=False, 
+                 visualize=False, 
+                 integrator_accuracy = 1e-5, 
+                 step_size=1e-2,
+                 verbose=True):
         # load arm model
         model_path = os.path.join(os.path.dirname(__file__), '../models/arm2dof6musc.osim')    
         # create osim model
@@ -120,9 +127,9 @@ class ArmEnv2D():
         return obs
 
     def normalize_observations(self, obs):
-        # desired pos
-        # joint pos and vel
-        # marker pos
+        # desired pos: 0 1
+        # joint pos and vel: 2 3  4 5
+        # marker pos: 6 7
         # muscle activation        
         return (obs-self.observation_space.low)/(self.observation_space.high-self.observation_space.low)
 
@@ -140,7 +147,7 @@ class ArmEnv2D():
         else:
             return dict(zip(_AXIS_LIST, [uniform(0.1, 0.5), uniform(0.3, 0.7)])) # x and y
 
-    def reset(self):
+    def reset(self, verbose=False):
         # compute wrist position
         self.pos_des = self.get_goal() # dictionary
 
@@ -148,8 +155,13 @@ class ArmEnv2D():
         self.osim_model.reset(init_pos=self.initial_joint_configuration(), \
                                 bullet_pos=self.pos_des) 
 
+        # get observations
+        obs = self.get_observations()
+        if verbose:
+            print(f"goal pos: {obs[0]:.2f}, {obs[1]:.2f}")
+            print(f"wrist pos: {obs[6]:.2f}, {obs[7]:.2f}")
         # get observations and normalize
-        return self.normalize_observations(self.get_observations())
+        return self.normalize_observations(obs=obs)
 
 
     def gaussian_reward(self, metric, max_error):
