@@ -188,13 +188,13 @@ class SAC():
         #self.logger.print_training_data()
 
 
-    def test(self, n_attemps):
+    def test(self, n_attemps, verbose=False):
         print(f"============================")
         print(f"\tstaring test")
         print(f"============================")        
         for attemp in range(n_attemps):
             # reset environment
-            obs, reward, done = self.env.reset(), 0, False
+            obs, reward, done = self.env.reset(verbose=verbose), 0, False
             score = 0                
 
             while not done:
