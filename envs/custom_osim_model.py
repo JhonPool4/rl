@@ -45,7 +45,7 @@ class CustomOsimModel(object):
                                     osim.Inertia(1,1,1,0,0,0)) # inertia's moment [Ixx Iyy Izz Ixy Ixz Iyz]
             # add display geometry
             _geom = osim.Ellipsoid(0.025,0.025,0.025)
-            _geom.setColor(osim.Orange)
+            _geom.setColor(osim.Green)
             goal_body.attachGeometry(_geom)                                
             # PlanarJoint: https://simtk.org/api_docs/opensim/api_docs/classOpenSim_1_1PlanarJoint.html
             self.goal_joint = osim.PlanarJoint("goal_joint", # name
