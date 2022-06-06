@@ -59,8 +59,7 @@ class ArmEnv2D():
                  show_goal=False, 
                  visualize=False, 
                  integrator_accuracy = 1e-5, 
-                 step_size=1e-2,
-                 verbose=True):
+                 step_size=1e-2):
         # load arm model
         model_path = os.path.join(os.path.dirname(__file__), '../models/arm2dof6musc.osim')    
         # create osim model
