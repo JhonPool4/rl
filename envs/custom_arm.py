@@ -26,8 +26,8 @@ _MUSCLE_LIST = ["TRIlong", "TRIlat", "TRImed", \
 # x,y: meters
 # activation: ?
 _MAX_LIST = {"pos_des":{'x':0.5, 'y':0.8}, \
-            "r_shoulder":{'pos':np.deg2rad(180), 'vel': 1}, \
-            "r_elbow":{'pos':np.deg2rad(150), 'vel': 1}, \
+            "r_shoulder":{'pos':np.deg2rad(180), 'vel': np.deg2rad(180)}, \
+            "r_elbow":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
             "r_radius_styloid":{'x':0.5, 'y':0.8} , \
             "TRIlong": {"act":1},\
             "TRIlat": {"act":1},\
@@ -37,8 +37,8 @@ _MAX_LIST = {"pos_des":{'x':0.5, 'y':0.8}, \
             "BRA": {"act":1}}
 
 _MIN_LIST = {"pos_des":{'x':-0.5, 'y':0.27}, \
-             "r_shoulder":{'pos':np.deg2rad(-90), 'vel': -1}, \
-             "r_elbow":{'pos':np.deg2rad(0), 'vel': -1}, \
+             "r_shoulder":{'pos':np.deg2rad(-90), 'vel': -np.deg2rad(180)}, \
+             "r_elbow":{'pos':np.deg2rad(0), 'vel': -np.deg2rad(180)}, \
              "r_radius_styloid":{'x':-0.5, 'y':0.27}, \
             "TRIlong": {"act":0},\
             "TRIlat": {"act":0},\
@@ -196,6 +196,12 @@ class ArmEnv2D():
         # terminal condition: out of bounds (joint pos or vel)
         if not np.logical_and(np.all(np.array(obs)<=1), np.all(np.array(obs)>=0)):
             #print_warning(f"terminal state for weird joint position or velocity")
+            #idx = 0
+            #for obj_name in _MAX_LIST.keys():
+            #    print(f"{obj_name}")
+            #    for name in _MAX_LIST[obj_name].keys():
+            #        print(f"\t{name}: {obs[idx]}")
+            #        idx +=1
             return obs, _REWARD['weird_joint_pos'], True, {'sim_time':self.osim_model._sim_timesteps}
 
         # all fine
