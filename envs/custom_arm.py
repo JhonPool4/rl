@@ -16,7 +16,7 @@ from envs.custom_osim_model import CustomOsimModel
 
 
 _JOINT_LIST = ["r_shoulder", "r_elbow"] 
-_MARKER_LIST =  ["r_radius_styloid"]
+_MARKER_LIST =  ["r_radius_styloid"]#, "r_humerus_epicondyle"]
 _AXIS_LIST = ["x", "y"]
 _MUSCLE_LIST = ["TRIlong", "TRIlat", "TRImed", \
                 "BIClong", "BICshort", "BRA"]
@@ -29,6 +29,7 @@ _MAX_LIST = {"pos_des":{'x':0.5, 'y':0.8}, \
             "r_shoulder":{'pos':np.deg2rad(180), 'vel': np.deg2rad(180)}, \
             "r_elbow":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
             "r_radius_styloid":{'x':0.5, 'y':0.8} , \
+            #"r_humerus_epicondyle":{'x':0.24, 'y':0.8} , \
             "TRIlong": {"act":1},\
             "TRIlat": {"act":1},\
             "TRImed": {"act":1},\
@@ -37,9 +38,10 @@ _MAX_LIST = {"pos_des":{'x':0.5, 'y':0.8}, \
             "BRA": {"act":1}}
 
 _MIN_LIST = {"pos_des":{'x':-0.5, 'y':0.27}, \
-             "r_shoulder":{'pos':np.deg2rad(-90), 'vel': -np.deg2rad(180)}, \
-             "r_elbow":{'pos':np.deg2rad(0), 'vel': -np.deg2rad(180)}, \
-             "r_radius_styloid":{'x':-0.5, 'y':0.27}, \
+            "r_shoulder":{'pos':np.deg2rad(-90), 'vel': -np.deg2rad(180)}, \
+            "r_elbow":{'pos':np.deg2rad(0), 'vel': -np.deg2rad(180)}, \
+            "r_radius_styloid":{'x':-0.5, 'y':0.27}, \
+            #"r_humerus_epicondyle":{'x':-0.24, 'y':0.51} , \
             "TRIlong": {"act":0},\
             "TRIlat": {"act":0},\
             "TRImed": {"act":0},\
@@ -47,8 +49,9 @@ _MIN_LIST = {"pos_des":{'x':-0.5, 'y':0.27}, \
             "BICshort": {"act":0},\
             "BRA": {"act":0}}             
 
-_POS_DES = {'x':0.2, 'y':0.6}
-_INIT_POS = {'r_shoulder':-np.pi/2, 'r_elbow':0}
+#_POS_DES = {'x':0.2, 'y':0.6}
+_DES_PARAM = {'theta':np.deg2rad(0), 'radio':0.2370}
+_INIT_POS = {'r_shoulder':0, 'r_elbow':np.deg2rad(15)}
 _REWARD = {'nan':-5, 'weird_joint_pos':-1}
 
 class ArmEnv2D():
@@ -102,6 +105,12 @@ class ArmEnv2D():
     def get_observations(self):
         # compute forces
         self.osim_model._model.realizeAcceleration(self.osim_model._state)
+        # des x y
+        # elbow pos vel
+        # shoulder pos vel
+        
+        # wrist marker x y
+        # elbow marker x y
 
         # observation list
         obs = []
@@ -134,31 +143,41 @@ class ArmEnv2D():
 
     def initial_joint_configuration(self):
         if not self.fixed_init:
-            init_pos =  [uniform(0.2*_MIN_LIST['r_shoulder']['pos'], 0.2*_MAX_LIST['r_shoulder']['pos']), \
-                         uniform(0.9*_MIN_LIST['r_elbow']['pos'], 0.9*_MAX_LIST['r_elbow']['pos'])]
+            init_pos =  [uniform(0.001*_MIN_LIST['r_shoulder']['pos'], 0.001*_MAX_LIST['r_shoulder']['pos']), \
+                         uniform(_MIN_LIST['r_elbow']['pos']+np.deg2rad(10), _MAX_LIST['r_elbow']['pos']-np.deg2rad(10))]
             return dict(zip(_JOINT_LIST, init_pos))
         else:
             return {joint_name:_INIT_POS[joint_name] for joint_name in _JOINT_LIST}
 
     def get_goal(self):
         if self.fixed_target:
-            return _POS_DES
+            theta = _DES_PARAM["theta"]- np.deg2rad(70)
+            radio = _DES_PARAM["radio"]
+            return  {'x':radio*np.cos(theta), 'y':radio*np.sin(theta) + 0.563}
         else:
-            return dict(zip(_AXIS_LIST, [uniform(0.1, 0.5), uniform(0.3, 0.7)])) # x and y
+            theta = uniform(_MIN_LIST["r_elbow"]["pos"], 0.7*_MAX_LIST["r_elbow"]["pos"]) - np.deg2rad(70)
+            radio = _DES_PARAM["radio"]
 
+            return {'x':radio*np.cos(theta), 'y':radio*np.sin(theta) + 0.563}
+    
     def reset(self, verbose=False):
+        # compute intitial joint configuration
+        init_joint_pos = self.initial_joint_configuration()
+
         # compute wrist position
-        self.pos_des = self.get_goal() # dictionary
+        self.pos_des = self.get_goal() # x, y
+
 
         # reset model variables
-        self.osim_model.reset(init_pos=self.initial_joint_configuration(), \
+        self.osim_model.reset(init_pos=init_joint_pos, \
                                 bullet_pos=self.pos_des) 
 
         # get observations
         obs = self.get_observations()
         if verbose:
-            print(f"goal pos: {obs[0]:.2f}, {obs[1]:.2f}")
-            print(f"wrist pos: {obs[6]:.2f}, {obs[7]:.2f}")
+            print(f"goal pos: {obs[0]:.3f}, {obs[1]:.3f}")
+            print(f"wrist pos: {obs[6]:.3f}, {obs[7]:.3f}")
+            print(f"elbow pos: {obs[8]:.3f}, {obs[9]:.3f}")
         # get observations and normalize
         return self.normalize_observations(obs=obs)
 
@@ -200,9 +219,10 @@ class ArmEnv2D():
             #for obj_name in _MAX_LIST.keys():
             #    print(f"{obj_name}")
             #    for name in _MAX_LIST[obj_name].keys():
-            #        print(f"\t{name}: {obs[idx]}")
+            #        print(f"\t{name}: {n_obs[idx]}")
             #        idx +=1
-            return obs, _REWARD['weird_joint_pos'], True, {'sim_time':self.osim_model._sim_timesteps}
+            #print(f"\n")
+            return obs, _REWARD['weird_joint_pos'], False, {'sim_time':self.osim_model._sim_timesteps}
 
         # all fine
         return obs, reward, False, {'sim_time':self.osim_model._sim_timesteps}
