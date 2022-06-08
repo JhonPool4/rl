@@ -12,7 +12,7 @@ activate conda environemnt
 install libraries to conda environment
 <pre><code>pip install -r conda_config/</code></pre> 
 
-# Configuration of Opensim 4.3
+# Configuration of Opensim 4.3 (Windows)
 Go to ~/Opensim 4.3/sdk/Python
 <pre><code>python setup_win_python38.py</code></pre> 
 <pre><code>python -m pip install .</code></pre> 
@@ -21,6 +21,12 @@ Add path of the dynamic libraries
 Add python libraries
 <pre><code>PYTHONPATH: C:\OpenSim 4.3\sdk\Python</code></pre> 
 
+# Configuration of Opensim 4.3 (MAC)
+Go to ~/Opensim 4.3/sdk
+<pre><code>python -m pip install .</code></pre> 
+Open your .bash_profile and add the dynamic libraries
+<pre><code>export DYLD_LIBRARY_PATH="$DYLD_LIBRARY_PATH:/Applications/OpenSim 4.3/OpenSim 4.3.app/Contents/Resources/opensim/sdk/lib"</code></pre> 
+<pre><code>export DYLD_LIBRARY_PATH="$DYLD_LIBRARY_PATH:/Applications/OpenSim 4.3/OpenSim 4.3.app/Contents/Resources/opensim/sdk/Simbody/lib"</code></pre> 
 # Test 
 After activate conda environment
 <pre><code>python main_customarm.py</code></pre> 
