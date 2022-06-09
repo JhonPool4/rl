@@ -5,6 +5,7 @@ from rl_utils import print_info
 import torch
 from copy import copy
 import os
+from alive_progress import alive_bar
 
 class SAC():
     def __init__(self, 
@@ -147,7 +148,7 @@ class SAC():
 
 
 
-    def learn(self, n_epochs, verbose=False):       
+    def learn(self, n_epochs, verbose=False,pulse_frequency_steps = None):       
         print(f"================================")
         print(f"\tstaring training")
         print(f"================================")
@@ -157,9 +158,16 @@ class SAC():
             # reset environment
             obs, reward, done = self.env.reset(verbose=verbose), 0, False
             score = 0
+            
+            
             while not done:
                 # get action
-                act, _ = self.pi_net.predict_action(torch.tensor(obs, dtype=torch.float32)) 
+                if pulse_frequency_steps is not None:
+                    env_steps = self.env.get_sim_timesteps()
+                    if env_steps % pulse_frequency_steps == 0:
+                        act, _ = self.pi_net.predict_action(torch.tensor(obs, dtype=torch.float32)) 
+                else:
+                    act, _ = self.pi_net.predict_action(torch.tensor(obs, dtype=torch.float32)) 
                 # interact with the environment
                 new_obs, reward, done, info = self.env.step(act.detach().numpy())
 
@@ -173,8 +181,9 @@ class SAC():
                 # update network paramteres: q_predict(critic) and pi_net(actor) 
                 if self.mem_buffer.allow_sample:
                     self.update_agent_parameters()
-                    self.update_target_networks(tau=0.05)                    
-
+                    self.update_target_networks(tau=0.05) 
+                #loading bar                   
+     
             # just to print data
             self.logger.data['score'].append(score)
             self.logger.data['sim_time'].append(info['sim_time'])
@@ -185,10 +194,10 @@ class SAC():
                 self.save_agent_parameters(save_path=self.save_path, epoch=epoch+self.logger.last_epoch)
                 self.logger.reset_data_buffer()
                 self.mem_buffer.save_memory_buffer()        
-        #self.logger.print_training_data()
+            #self.logger.print_training_data()
 
 
-    def test(self, n_attemps, verbose=False):
+    def test(self, n_attemps, verbose=False,pulse_frequency_steps = None):
         print(f"============================")
         print(f"\tstaring test")
         print(f"============================")        
@@ -199,7 +208,12 @@ class SAC():
 
             while not done:
                 # get action
-                act, _ = self.pi_net.predict_action(torch.tensor(obs, dtype=torch.float32)) 
+                if pulse_frequency_steps is not None:
+                        env_steps = self.env.get_sim_timesteps()
+                        if env_steps % pulse_frequency_steps == 0:
+                            act, _ = self.pi_net.predict_action(torch.tensor(obs, dtype=torch.float32)) 
+                else:
+                    act, _ = self.pi_net.predict_action(torch.tensor(obs, dtype=torch.float32)) 
                 # interact with the environment
                 new_obs, reward, done, info = self.env.step(act.detach().numpy())
                 #render

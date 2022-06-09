@@ -238,6 +238,8 @@ class Arm2DEnv(object):
             func = osim.Constant.safeDownCast(self._control_functions.get(idx))
             # apply action
             func.setValue( float(action[idx]) )
+    def get_sim_timesteps(self):
+        return self._sim_timesteps
 
     def integrate(self):
         # update simulation step
@@ -350,7 +352,7 @@ class Arm2DEnv(object):
         if not np.logical_and(np.all(np.array(obs)<=1), np.all(np.array(obs)>=0)):
             #print_warning(f"terminal state for weird joint position or velocity")
 
-            return obs, _REWARD['weird_joint_pos'], True, {'sim_time':self._sim_timesteps}
+            return obs, _REWARD['weird_joint_pos'], False, {'sim_time':self._sim_timesteps}
 
         # all fine
         return obs, reward, False, {'sim_time':self._sim_timesteps}
