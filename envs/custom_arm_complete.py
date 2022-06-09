@@ -18,7 +18,7 @@ from envs.custom_osim_model import CustomOsimModel
 _JOINT_LIST = ["sc1", "sc2","sc3",\
                "ac1", "ac2","ac3",\
                "gh1", "gh2","gh3",\
-               "hu", "ur","rc"] 
+               "hu", "ur"]#"rc"] 
 _MARKER_LIST =  []#["r_radius_styloid"]#, "r_humerus_epicondyle"]
 
 _AXIS_LIST = ["x", "y", "z"]
@@ -77,18 +77,18 @@ _MUSCLE_LIST = ["trap_scap_1", "trap_scap_2", "trap_scap_3", \
               
 max_activation_muscles = 1
 _MAX_LIST = {"pos_des":{'x':0.5, 'y':0.8, 'z':0.5}, \
-            "sc1":{'pos':np.deg2rad(180), 'vel': np.deg2rad(180)}, \
-            "sc2":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
-            "sc3":{'pos':np.deg2rad(180), 'vel': np.deg2rad(180)}, \
-            "ac1":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
-            "ac2":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
-            "ac3":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
-            "gh1":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
-            "gh2":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
-            "gh3":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
-            "hu":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
-            "ur":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
-            "rc":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
+            "sc1":{'pos':-np.deg2rad(19), 'vel': np.deg2rad(7)}, \
+            "sc2":{'pos':np.deg2rad(30), 'vel': np.deg2rad(7)}, \
+            "sc3":{'pos':np.deg2rad(82), 'vel': np.deg2rad(7)}, \
+            "ac1":{'pos':np.deg2rad(69), 'vel': np.deg2rad(7)}, \
+            "ac2":{'pos':np.deg2rad(20), 'vel': np.deg2rad(7)}, \
+            "ac3":{'pos':np.deg2rad(18), 'vel': np.deg2rad(7)}, \
+            "gh1":{'pos':np.deg2rad(174), 'vel': np.deg2rad(7)}, \
+            "gh2":{'pos':np.deg2rad(84), 'vel': np.deg2rad(7)}, \
+            "gh3":{'pos':np.deg2rad(178), 'vel': np.deg2rad(7)}, \
+            "hu":{'pos':np.deg2rad(140), 'vel': np.deg2rad(7)}, \
+            "ur":{'pos':np.deg2rad(160), 'vel': np.deg2rad(7)}, \
+            #"rc":{'pos':np.deg2rad(0), 'vel': np.deg2rad(0)}, \
             #"r_radius_styloid":{'x':0.5, 'y':0.8}, \
             #"r_humerus_epicondyle":{'x':0.24, 'y':0.8} , \
             "trap_scap_1": {"act":max_activation_muscles}, "trap_scap_2": {"act":max_activation_muscles}, "trap_scap_3": {"act":max_activation_muscles}, \
@@ -138,21 +138,21 @@ _MAX_LIST = {"pos_des":{'x':0.5, 'y':0.8, 'z':0.5}, \
             "anconeus_2": {"act":max_activation_muscles}, "anconeus_3": {"act":max_activation_muscles}, "anconeus_4": {"act":max_activation_muscles}, \
             "anconeus_5": {"act":max_activation_muscles}}
 
-_MIN_LIST = {"pos_des":{'x':-0.5, 'y':0.27, 'z':0}, \
-            "sc1":{'pos':-np.deg2rad(65), 'vel': -np.deg2rad(3)}, \
-            "sc2":{'pos':-np.deg2rad(5), 'vel': -np.deg2rad(3)}, \
-            "sc3":{'pos':-np.deg2rad(0), 'vel': -np.deg2rad(3)}, \
-            "ac1":{'pos':-np.deg2rad(33), 'vel': -np.deg2rad(3)}, \
-            "ac2":{'pos':-np.deg2rad(21), 'vel': -np.deg2rad(3)}, \
-            "ac3":{'pos':-np.deg2rad(17), 'vel': -np.deg2rad(3)}, \
-            "gh1":{'pos':-np.deg2rad(170), 'vel': -np.deg2rad(3)}, \
-            "gh2":{'pos':-np.deg2rad(90), 'vel': -np.deg2rad(3)}, \
-            "gh3":{'pos':-np.deg2rad(90), 'vel': -np.deg2rad(3)}, \
-            "hu":{'pos':-np.deg2rad(90), 'vel': -np.deg2rad(3)}, \
-            "ur":{'pos':-np.deg2rad(90), 'vel': -np.deg2rad(3)}, \
-            "rc":{'pos':-np.deg2rad(90), 'vel': -np.deg2rad(3)}, \
-            #"r_radius_styloid":{'x':-0.5, 'y':0.27}, \
+_MIN_LIST = {#"r_radius_styloid":{'x':-0.5, 'y':0.27}, \
             #"r_humerus_epicondyle":{'x':-0.24, 'y':0.51} , \
+            "pos_des":{'x':-0.5, 'y':0.27, 'z':0}, \
+            "sc1":{'pos':-np.deg2rad(45), 'vel': -np.deg2rad(3)}, \
+            "sc2":{'pos':np.deg2rad(5), 'vel': -np.deg2rad(3)}, \
+            "sc3":{'pos':np.deg2rad(0), 'vel': -np.deg2rad(3)}, \
+            "ac1":{'pos':np.deg2rad(33), 'vel': -np.deg2rad(3)}, \
+            "ac2":{'pos':-np.deg2rad(12), 'vel': -np.deg2rad(3)}, \
+            "ac3":{'pos':-np.deg2rad(17), 'vel': -np.deg2rad(3)}, \
+            "gh1":{'pos':np.deg2rad(96), 'vel': -np.deg2rad(3)}, \
+            "gh2":{'pos':np.deg2rad(12), 'vel': -np.deg2rad(3)}, \
+            "gh3":{'pos':np.deg2rad(150), 'vel': -np.deg2rad(3)}, \
+            "hu":{'pos':np.deg2rad(5), 'vel': -np.deg2rad(3)}, \
+            "ur":{'pos':np.deg2rad(5), 'vel': -np.deg2rad(3)}, \
+            #"rc":{'pos':-np.deg2rad(0), 'vel': -np.deg2rad(0)}, # this joint does nothing, is just an offset.
             "trap_scap_1": {"act":0}, "trap_scap_2": {"act":0}, "trap_scap_3": {"act":0}, \
             "trap_scap_4": {"act":0}, "trap_scap_5": {"act":0}, "trap_scap_6": {"act":0}, \
             "trap_scap_7": {"act":0}, "trap_scap_8": {"act":0}, "trap_scap_9": {"act":0}, \
@@ -203,6 +203,18 @@ _MIN_LIST = {"pos_des":{'x':-0.5, 'y':0.27, 'z':0}, \
 #_POS_DES = {'x':0.2, 'y':0.6}
 _DES_PARAM = {'theta':np.deg2rad(0), 'radio':0.2370}
 _INIT_POS = {'r_shoulder':0, 'r_elbow':np.deg2rad(15)}
+_INIT_POS = {"sc1":-np.deg2rad(27), \
+            "sc2":np.deg2rad(5), \
+            "sc3":np.deg2rad(32), \
+            "ac1":np.deg2rad(45), \
+            "ac2":np.deg2rad(0.458), \
+            "ac3":-np.deg2rad(12), \
+            "gh1":np.deg2rad(43), \
+            "gh2":-np.deg2rad(0.218), \
+            "gh3":-np.deg2rad(34), \
+            "hu":np.deg2rad(5), \
+            "ur":np.deg2rad(5)}
+            #"rc":np.deg2rad(0)} # this joint does nothing, is just an offset.}
 _REWARD = {'nan':-5, 'weird_joint_pos':-1}
 
 class ArmEnv3D():
