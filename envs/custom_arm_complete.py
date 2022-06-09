@@ -19,8 +19,9 @@ _JOINT_LIST = ["sc1", "sc2","sc3",\
                "ac1", "ac2","ac3",\
                "gh1", "gh2","gh3",\
                "hu", "ur","rc"] 
-_MARKER_LIST =  ["r_radius_styloid"]#, "r_humerus_epicondyle"]
-_AXIS_LIST = ["x", "y"]
+_MARKER_LIST =  []#["r_radius_styloid"]#, "r_humerus_epicondyle"]
+
+_AXIS_LIST = ["x", "y", "z"]
 _MUSCLE_LIST = ["trap_scap_1", "trap_scap_2", "trap_scap_3", \
                 "trap_scap_4", "trap_scap_5", "trap_scap_6", \
                 "trap_scap_7", "trap_scap_8", "trap_scap_9", \
@@ -72,11 +73,23 @@ _MUSCLE_LIST = ["trap_scap_1", "trap_scap_2", "trap_scap_3", \
 # vel: rad/s
 # x,y: meters
 # activation: ?
+
+              
 max_activation_muscles = 1
-_MAX_LIST = {"pos_des":{'x':0.5, 'y':0.8}, \
-            "r_shoulder":{'pos':np.deg2rad(180), 'vel': np.deg2rad(180)}, \
-            "r_elbow":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
-            "r_radius_styloid":{'x':0.5, 'y':0.8} , \
+_MAX_LIST = {"pos_des":{'x':0.5, 'y':0.8, 'z':0.5}, \
+            "sc1":{'pos':np.deg2rad(180), 'vel': np.deg2rad(180)}, \
+            "sc2":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
+            "sc3":{'pos':np.deg2rad(180), 'vel': np.deg2rad(180)}, \
+            "ac1":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
+            "ac2":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
+            "ac3":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
+            "gh1":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
+            "gh2":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
+            "gh3":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
+            "hu":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
+            "ur":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
+            "rc":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
+            #"r_radius_styloid":{'x':0.5, 'y':0.8}, \
             #"r_humerus_epicondyle":{'x':0.24, 'y':0.8} , \
             "trap_scap_1": {"act":max_activation_muscles}, "trap_scap_2": {"act":max_activation_muscles}, "trap_scap_3": {"act":max_activation_muscles}, \
             "trap_scap_4": {"act":max_activation_muscles}, "trap_scap_5": {"act":max_activation_muscles}, "trap_scap_6": {"act":max_activation_muscles}, \
@@ -125,10 +138,20 @@ _MAX_LIST = {"pos_des":{'x':0.5, 'y':0.8}, \
             "anconeus_2": {"act":max_activation_muscles}, "anconeus_3": {"act":max_activation_muscles}, "anconeus_4": {"act":max_activation_muscles}, \
             "anconeus_5": {"act":max_activation_muscles}}
 
-_MIN_LIST = {"pos_des":{'x':-0.5, 'y':0.27}, \
-            "r_shoulder":{'pos':np.deg2rad(-90), 'vel': -np.deg2rad(180)}, \
-            "r_elbow":{'pos':np.deg2rad(0), 'vel': -np.deg2rad(180)}, \
-            "r_radius_styloid":{'x':-0.5, 'y':0.27}, \
+_MIN_LIST = {"pos_des":{'x':-0.5, 'y':0.27, 'z':0}, \
+            "sc1":{'pos':-np.deg2rad(65), 'vel': -np.deg2rad(3)}, \
+            "sc2":{'pos':-np.deg2rad(5), 'vel': -np.deg2rad(3)}, \
+            "sc3":{'pos':-np.deg2rad(0), 'vel': -np.deg2rad(3)}, \
+            "ac1":{'pos':-np.deg2rad(33), 'vel': -np.deg2rad(3)}, \
+            "ac2":{'pos':-np.deg2rad(21), 'vel': -np.deg2rad(3)}, \
+            "ac3":{'pos':-np.deg2rad(17), 'vel': -np.deg2rad(3)}, \
+            "gh1":{'pos':-np.deg2rad(170), 'vel': -np.deg2rad(3)}, \
+            "gh2":{'pos':-np.deg2rad(90), 'vel': -np.deg2rad(3)}, \
+            "gh3":{'pos':-np.deg2rad(90), 'vel': -np.deg2rad(3)}, \
+            "hu":{'pos':-np.deg2rad(90), 'vel': -np.deg2rad(3)}, \
+            "ur":{'pos':-np.deg2rad(90), 'vel': -np.deg2rad(3)}, \
+            "rc":{'pos':-np.deg2rad(90), 'vel': -np.deg2rad(3)}, \
+            #"r_radius_styloid":{'x':-0.5, 'y':0.27}, \
             #"r_humerus_epicondyle":{'x':-0.24, 'y':0.51} , \
             "trap_scap_1": {"act":0}, "trap_scap_2": {"act":0}, "trap_scap_3": {"act":0}, \
             "trap_scap_4": {"act":0}, "trap_scap_5": {"act":0}, "trap_scap_6": {"act":0}, \
@@ -182,7 +205,7 @@ _DES_PARAM = {'theta':np.deg2rad(0), 'radio':0.2370}
 _INIT_POS = {'r_shoulder':0, 'r_elbow':np.deg2rad(15)}
 _REWARD = {'nan':-5, 'weird_joint_pos':-1}
 
-class ArmEnv2D():
+class ArmEnv3D():
 
     def __init__(self, sim_time=3,
                  fixed_target=True, 
@@ -193,22 +216,25 @@ class ArmEnv2D():
                  step_size=1e-2):
         # load arm model
         model_path = os.path.join(os.path.dirname(__file__), '../models/Arm10DOF/completearm.osim')    
+        
+        
+
         # create osim model
         self.osim_model = CustomOsimModel(model_path=model_path,\
                                             visualize=visualize,\
                                             integrator_accuracy=integrator_accuracy,\
                                             step_size=step_size, \
                                             add_bullet=show_goal)
-
+        
         # simulation parameters
         self.max_timesteps = sim_time/step_size
         self.sim_timesteps = 0
         self.show_goal = show_goal
-
+        print(f"flag 1") 
         # model configuration
         self.osim_model.update_joint_limits(joint_list=_JOINT_LIST,\
                                                  max_list=_MAX_LIST, min_list=_MIN_LIST)
-
+        print(f"flag 2") 
         # RL environemnt parameters
         self.fixed_target = fixed_target
         self.fixed_init = fixed_init    
@@ -222,6 +248,8 @@ class ArmEnv2D():
         low = [var for lvl1 in _MIN_LIST.values() for var in lvl1.values()] 
         low = np.array(low, dtype=np.float32)  
 
+       
+
         self.observation_space = spaces.Box(low=low, \
                                             high=high, \
                                             shape=(n_obs,))
@@ -230,6 +258,8 @@ class ArmEnv2D():
                                         high=np.ones((self.osim_model._n_muscles,), dtype=np.float32), \
                                         shape=(self.osim_model._n_muscles,))
 
+        
+        
     def get_observations(self):
         # compute forces
         self.osim_model._model.realizeAcceleration(self.osim_model._state)
@@ -271,8 +301,10 @@ class ArmEnv2D():
 
     def initial_joint_configuration(self):
         if not self.fixed_init:
-            init_pos =  [uniform(0.001*_MIN_LIST['r_shoulder']['pos'], 0.001*_MAX_LIST['r_shoulder']['pos']), \
-                         uniform(_MIN_LIST['r_elbow']['pos']+np.deg2rad(10), _MAX_LIST['r_elbow']['pos']-np.deg2rad(10))]
+            #init_pos =  [uniform(0.001*_MIN_LIST['r_shoulder']['pos'], 0.001*_MAX_LIST['r_shoulder']['pos']), \
+            #             uniform(_MIN_LIST['r_elbow']['pos']+np.deg2rad(10), _MAX_LIST['r_elbow']['pos']-np.deg2rad(10))]
+            
+            init_pos = [0 for _ in range(12)]
             return dict(zip(_JOINT_LIST, init_pos))
         else:
             return {joint_name:_INIT_POS[joint_name] for joint_name in _JOINT_LIST}
@@ -294,7 +326,6 @@ class ArmEnv2D():
 
         # compute wrist position
         self.pos_des = self.get_goal() # x, y
-
 
         # reset model variables
         self.osim_model.reset(init_pos=init_joint_pos, \
@@ -335,10 +366,10 @@ class ArmEnv2D():
             #print_warning(f"terminal state for nan observations")
             obs = np.nan_to_num(obs)
             obs = np.clip(obs, 0, 1)
-            return obs, _REWARD['nan'], True, {'sim_time':self.osim_model._sim_timesteps}
+            return obs, _REWARD['nan'], False, {'sim_time':self.osim_model._sim_timesteps}
 
         if not self.osim_model._sim_timesteps < self.max_timesteps:
-            return obs, reward, True, {'sim_time':self.osim_model._sim_timesteps}
+            return obs, reward, False, {'sim_time':self.osim_model._sim_timesteps}
 
         # terminal condition: out of bounds (joint pos or vel)
         if not np.logical_and(np.all(np.array(obs)<=1), np.all(np.array(obs)>=0)):
