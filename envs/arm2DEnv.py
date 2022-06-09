@@ -133,9 +133,12 @@ class Arm2DEnv(object):
         self._manager = None # model's manager
 
         # observation space
+        self.obs_names = [key+'_'+name for key, val in _MAX_LIST.items() for name in val]
+        n_obs = len(self.obs_names)
+
         high = [var for lvl1 in _MAX_LIST.values() for var in lvl1.values()] 
-        n_obs = len(high)
         high = np.array(high, dtype=np.float32)
+
         low = [var for lvl1 in _MIN_LIST.values() for var in lvl1.values()] 
         low = np.array(low, dtype=np.float32)  
 
@@ -170,10 +173,11 @@ class Arm2DEnv(object):
 
         # observation list
         obs = []
+        obs_dict={}
 
         # desired wrist position
-        for pos in self.pos_des.values():
-            obs.append(pos)
+        for val in self.pos_des.values():
+            obs.append(val)
         
         # joint position
         for joint_name in _JOINT_LIST:
@@ -188,7 +192,9 @@ class Arm2DEnv(object):
         # muscle activation
         for idx, muscle_name in enumerate(_MUSCLE_LIST):             
             obs.append(self._muscles.get(muscle_name).getActivation(self._state))
-        return obs
+        
+
+        return obs, dict(zip(self.obs_names, obs))
 
     def normalize_observations(self, obs):
         # desired pos: 0 1
@@ -287,11 +293,10 @@ class Arm2DEnv(object):
                                 bullet_pos=self.pos_des) 
 
         # get observations
-        obs = self.get_observations()
+        obs, obs_dict = self.get_observations()
         if verbose:
-            print(f"goal pos: {obs[0]:.3f}, {obs[1]:.3f}")
-            print(f"wrist pos: {obs[6]:.3f}, {obs[7]:.3f}")
-            print(f"elbow pos: {obs[8]:.3f}, {obs[9]:.3f}")
+            print(f"goal pos: {obs_dict['pos_des_x']:.3f}, {obs_dict['pos_des_y']:.3f}")
+            print(f"wrist pos: {obs_dict['r_radius_styloid_x']:.3f}, {obs_dict['r_radius_styloid_y']:.3f}")
 
         # muscle's activation
         if self._show_act_plot:
@@ -315,10 +320,12 @@ class Arm2DEnv(object):
         # apply action
         self.step_model(action=action)
         # get environemnt observations
-        obs=self.normalize_observations(self.get_observations())
+        obs, obs_dict = self.get_observations()
+        obs=self.normalize_observations(obs)
 
         # compute distance from wrist to target point
-        distance = ((obs[6]-obs[0])**2 + (obs[7]-obs[1])**2)**0.5
+        distance = ((obs_dict['pos_des_x']-obs_dict['r_radius_styloid_x'])**2 +\
+                    (obs_dict['pos_des_y']-obs_dict['r_radius_styloid_y'])**2)**0.5
         # reward system
         reward = self.gaussian_reward(metric=distance, max_error=0.3) # reward to achieve desired position 
         reward -= 0.01*sum(action) # punishment for inefficient motion
@@ -338,7 +345,7 @@ class Arm2DEnv(object):
         if not np.logical_and(np.all(np.array(obs)<=1), np.all(np.array(obs)>=0)):
             #print_warning(f"terminal state for weird joint position or velocity")
 
-            return obs, _REWARD['weird_joint_pos'], False, {'sim_time':self._sim_timesteps}
+            return obs, _REWARD['weird_joint_pos'], True, {'sim_time':self._sim_timesteps}
 
         # all fine
         return obs, reward, False, {'sim_time':self._sim_timesteps}
