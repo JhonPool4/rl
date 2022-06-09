@@ -150,7 +150,7 @@ class SAC():
 
     def learn(self, n_epochs, verbose=False,pulse_frequency_steps = None):       
         print(f"================================")
-        print(f"\tstaring training")
+        print(f"\tStarting Training.............")
         print(f"================================")
         # same networks
         self.update_target_networks(tau=1)
