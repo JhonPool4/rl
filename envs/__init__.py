@@ -1,4 +1,3 @@
 from .cartpole import ContinuousCartPoleEnv
-#from .custom_arm import CustomArmEnv
-from .custom_osim_model import CustomOsimModel
-from .custom_arm import ArmEnv2D
+from .arm2DEnv import Arm2DEnv
+from .arm3DEnv import Arm3DEnv
