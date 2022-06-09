@@ -261,6 +261,9 @@ class Arm2DEnv(object):
         if init_pos is not None:
             for name in _JOINT_LIST:
                 self._joints.get(name).upd_coordinates(0).setDefaultValue(init_pos[name])
+
+        # fixed shoulder
+        self._joints.get("r_shoulder").upd_coordinates(0).setDefaultLocked(True)
         
         # compute initial state (important!)
         self._state = self._model.initializeState()
@@ -311,12 +314,14 @@ class Arm2DEnv(object):
 
 
     def step(self, action):
+        # mean muscle's activation
+        action[0:3] = np.mean(action[0:3]) # triceps
+        action[3:6] = np.mean(action[3:6]) # biceps 
         # muscle's activation
         if self._show_act_plot:
             self._mus_plot.add_data(time=self._sim_timesteps*self._step_size, act=action)
             if self._show_act_plot and self._sim_timesteps%100==0:
-                self._mus_plot.update_figure()        
-
+                self._mus_plot.update_figure()       
         # apply action
         self.step_model(action=action)
         # get environemnt observations
