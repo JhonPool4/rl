@@ -88,7 +88,7 @@ class Arm2DEnv(object):
         self._model.setUseVisualizer(self._visualize)  
         # animation of muscle's activation
         if self._show_act_plot:
-            self._mus_plot = Plotter(max_simtime=sim_time,headers=_MUSCLE_LIST)               
+            self._mus_plot = Plotter(nrows=2, ncols=1,max_simtime=sim_time,headers=_MUSCLE_LIST)               
         
         # add bullet to model
         if self._visualize and self._show_goal:
@@ -215,7 +215,8 @@ class Arm2DEnv(object):
         low = [var for lvl1 in _JOINT_MIN.values() for var in lvl1.values()] 
         low = np.array(low)
 
-        return (obs-low)/(high-low)
+
+        return obs, (obs-low)/(high-low)
 
     def normalize_observations(self, obs):
         # desired pos: 0 1
@@ -378,18 +379,25 @@ class Arm2DEnv(object):
             #print_warning(f"terminal state for nan observations")
             obs = np.nan_to_num(obs)
             obs = np.clip(obs, 0, 1)
-            return obs, _REWARD['nan'], True, {'sim_time':self._sim_timesteps}
+            return obs, _REWARD['nan'], True, {'sim_timesteps':self._sim_timesteps}
         
         # terminal condition: max simulation steps reached
         if not self._sim_timesteps < self._max_sim_timesteps:
-            return obs, reward, True, {'sim_time':self._sim_timesteps}
+            return obs, reward, True, {'sim_timesteps':self._sim_timesteps}
 
         # terminal condition: out  of bounds (joint pos or vel)
-        joint_obs = self.get_joint_states()
-        if not np.logical_and(np.all(np.array(joint_obs)<=1), np.all(np.array(joint_obs)>=0)):
+        joint_obs, norm_joint_obs = self.get_joint_states()
+        joint_names = [key+'_'+name for key, val in _JOINT_MAX.items() for name in val.keys()]
+
+        if not np.logical_and(np.all(np.array(norm_joint_obs)<=1), np.all(np.array(norm_joint_obs)>=0)):
             #print_warning(f"terminal state for weird joint position or velocity")
-            return obs, _REWARD['weird_joint_pos'], True, {'sim_time':self._sim_timesteps}
+            for name, val, norm_val  in zip(joint_names, joint_obs, norm_joint_obs):
+                if not 0<=norm_val<=1:
+                    #print_warning(f"{name}: {np.rad2deg(val):2.f}")
+                    print_warning(f"{name}: {norm_val:.2f}")
+                #print(f"")
+            return obs, _REWARD['weird_joint_pos'], True, {'sim_timesteps':self._sim_timesteps}
 
         # all fine
-        return obs, reward, False, {'sim_time':self._sim_timesteps}
+        return obs, reward, False, {'sim_timesteps':self._sim_timesteps}
         
