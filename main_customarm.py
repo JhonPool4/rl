@@ -1,16 +1,73 @@
-from envs import ArmEnv2D
+from envs import Arm2DEnv
 from rl_agents import SAC
 import numpy as np
 
-# create environemnt
-env = ArmEnv2D(sim_time=3, visualize=True, fixed_init=False, fixed_target=True)
-# create agent
-agent = SAC(env=env, mem_size=10000, batch_size=500, gamma=0.99, alpha=1.0, dir_name='arm_3\\sac', save_rate=200, print_rate=1, load_model=True)
-# train agent
-agent.learn(n_epochs=1000)
+pulse_frequency_steps = 3
+integrator_accuracy=1e-5
+step_size=1e-2
+agent_params_directory ='arm_6\\sac'
 
-# test agent
-#agent.test(n_attemps=10)
+load_model = True
+train = True
+
+if train:
+
+    # create environemnt
+    env = Arm2DEnv(sim_time=4, 
+                    visualize=False,
+                    show_act_plot=False,
+                    show_goal=False, 
+                    fixed_init=False, 
+                    fixed_target=False,
+                    integrator_accuracy=integrator_accuracy,
+                    step_size=step_size,
+                    with_fes = True)
+
+    # create agent
+    agent = SAC(env=env, 
+                mem_size=10000, 
+                batch_size=500, 
+                gamma=0.99, 
+                alpha=1.0, 
+                dir_name=agent_params_directory, 
+                save_rate=500, 
+                print_rate=1, 
+                load_model=load_model)
+
+
+    
+    # train agent
+    agent.learn(n_epochs=20000, verbose=True,pulse_frequency_steps = pulse_frequency_steps)
+else:
+    # create environemnt
+    env = Arm2DEnv(sim_time=4, 
+                    visualize=True,
+                    show_act_plot=False,
+                    show_goal=True, 
+                    fixed_init=False, 
+                    fixed_target=False,
+                    integrator_accuracy=integrator_accuracy,
+                    step_size=step_size,
+                    with_fes = True)
+
+    # create agent
+    agent = SAC(env=env, 
+                mem_size=10000, 
+                batch_size=500, 
+                gamma=0.99, 
+                alpha=1.0, 
+                dir_name=agent_params_directory, 
+                save_rate=500, 
+                print_rate=1, 
+                load_model=load_model)
+    # test agent
+    agent.test(n_attemps=50, verbose=True,pulse_frequency_steps = pulse_frequency_steps)
+
+
+
+
+
+
 """
 # create environemnt
 env = CustomArmEnv(visualize=True)
@@ -23,6 +80,7 @@ while True:
     if counter%100==0:
         print(f"obs:{obs}")
     #print(f"obs: {len(obs)}, {type(obs)}, r: {type(reward)}, d: {type(done)}")
+
 """
 
 """
@@ -34,6 +92,8 @@ Updates:
     - observation vector has wrist's marker position (x,y). Thus, new observation vector is 14
     - punishment for weird motions from -1 to -0.1 to avoid high loss functions and reduce oscillations
     - new terminal condition for weird elbow angular position, this will accelerate the training process
+    - normalize the observations to reduce oscillation 
+    - set initial conditions
 
     Agent:
     -----
@@ -41,6 +101,10 @@ Updates:
     - load memory buffer after resuming training
     - save models per epochs
 
+    GPU:
+    ---
+    - best pytorch version for python38
+    - gpu characterisctis for our library
 
 To Do:
 -----
@@ -48,16 +112,8 @@ To Do:
     -----
     - plot of muscle activation: biceps should be greather than triceps
 
-
-    GPU:
-    ---
-    - best pytorch version for python3
-    - gpu characterisctis for our library
-
     Env:
     ---
-    - normalize the observations to reduce oscillation 
-    - set initial conditions
     - add electrical stimulation
 
     Luca:
