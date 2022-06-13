@@ -18,7 +18,7 @@ class ContinuousCartPoleEnv():
         'video.frames_per_second': 50
     }
 
-    def __init__(self, render_flag=False):
+    def __init__(self, render_flag=False, sim_time=300, step_size=1e-2):
         self.gravity = 9.8
         self.masscart = 1.0
         self.masspole = 0.1
@@ -52,11 +52,13 @@ class ContinuousCartPoleEnv():
         self.seed()
         self.viewer = None
         self.state = None
-        self.max_sim_time = 300
+        
+        self.max_sim_timesteps = sim_time/step_size
+        self.sim_timesteps = 0
         self.sim_time = 0
+        self.step_size = step_size  
         self.render_flag = render_flag
 
-        #self.steps_beyond_done = None
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -87,7 +89,7 @@ class ContinuousCartPoleEnv():
             or x > self.x_threshold \
             or theta < -self.theta_threshold_radians \
             or theta > self.theta_threshold_radians \
-            or self.sim_time > self.max_sim_time
+            or self.sim_timesteps >= self.max_sim_timesteps
         done = bool(done)
 
         if not done:
@@ -95,12 +97,13 @@ class ContinuousCartPoleEnv():
         else:
             reward = 0.0
 
-        self.sim_time += 1
+        self.sim_timesteps += 1
+        self.sim_time += self.step_size 
         
         if self.render_flag:
             self.render()
 
-        return np.array(self.state), reward, done, {'sim_time':self.sim_time}
+        return np.array(self.state), reward, done, {'sim_time':self.sim_time, 'sim_timesteps':self.sim_timesteps}
 
     def reset(self):
         self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
