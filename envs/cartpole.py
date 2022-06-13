@@ -105,8 +105,9 @@ class ContinuousCartPoleEnv():
 
         return np.array(self.state), reward, done, {'sim_time':self.sim_time, 'sim_timesteps':self.sim_timesteps}
 
-    def reset(self):
+    def reset(self, verbose=False):
         self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
+        self.sim_timesteps = 0
         self.sim_time = 0
         return np.array(self.state)
 
