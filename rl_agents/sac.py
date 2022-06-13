@@ -93,13 +93,13 @@ class SAC():
     def update_agent_parameters(self):
         # sample a transition (obs, act, reward, new_obs, done)
         obs, act, r, next_obs, done = self.mem_buffer.sample_memory(self.batch_size)  
-        """
-        print(f"obs: {obs.size()}")
-        print(f"act: {act.size()}")
-        print(f"r: {r.size()}")
-        print(f"new_obs: {next_obs.size()}")
-        print(f"done: {done.size()}")
-        """
+        
+        #print(f"obs: {obs.size()}")
+        #print(f"act: {act.size()}")
+        #print(f"r: {r.size()}")
+        #print(f"new_obs: {next_obs.size()}")
+        #print(f"done: {done.size()}")
+        
 
         with torch.no_grad():
             # from numpy to torch.tensor
@@ -148,7 +148,7 @@ class SAC():
 
 
 
-    def learn(self, n_epochs, verbose=False,pulse_frequency_steps = None):       
+    def learn(self, n_epochs, verbose=False, pulse_frequency_steps = None):       
         print(f"================================")
         print(f"\tStarting Training")
         print(f"================================")
@@ -186,7 +186,7 @@ class SAC():
      
             # just to print data
             self.logger.data['score'].append(score)
-            self.logger.data['sim_time'].append(info['sim_time'])
+            self.logger.data['sim_time'].append(info['sim_timesteps'])
             self.logger.print_data_buf(epoch=epoch, verbose=verbose)
 
             # save neural network parameters
