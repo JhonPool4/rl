@@ -87,7 +87,7 @@ class Arm2DEnv(object):
         # enable the visualizer
         self._model.setUseVisualizer(self._visualize)  
         # animation of muscle's activation
-        if self._show_act_plot:
+        if self._visualize and self._show_act_plot:
             self._mus_plot = Plotter(nrows=2, ncols=1,max_simtime=sim_time,headers=_MUSCLE_LIST)               
         
         # add bullet to model
@@ -336,7 +336,7 @@ class Arm2DEnv(object):
             
 
         # muscle's activation
-        if self._show_act_plot:
+        if self._visualize and self._show_act_plot:
             self._mus_plot.reset()
         # get observations and normalize
         obs = self.normalize_observations(obs=obs)
@@ -357,7 +357,7 @@ class Arm2DEnv(object):
             action[5] = 0
         
         # muscle's activation
-        if self._show_act_plot:
+        if self._visualize and self._show_act_plot:
             self._mus_plot.add_data(time=self._sim_timesteps*self._step_size, act=action)
             if self._show_act_plot and self._sim_timesteps%100==0:
                 self._mus_plot.update_figure()       
