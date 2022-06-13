@@ -5,7 +5,6 @@ from rl_utils import print_info
 import torch
 from copy import copy
 import os
-from alive_progress import alive_bar
 
 class SAC():
     def __init__(self, 
