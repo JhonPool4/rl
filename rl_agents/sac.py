@@ -223,5 +223,5 @@ class SAC():
                 # just to print
                 score +=reward        
             
-            print(f"attemp: {attemp+1}, score: {score:.2f}, sim_time: {info['sim_time']}")
+            print(f"attemp: {attemp+1}, score: {score:.2f}, sim_time: {info['sim_timesteps']}")
             print(f"")
