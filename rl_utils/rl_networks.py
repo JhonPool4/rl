@@ -37,6 +37,7 @@ class DoubleQNetwork(nn.Module):
         self.optimizer = Adam(self.parameters(), lr=lr)
 
     def forward(self, obs, act):
+        #print(f"obs: {obs.size()}, act: {act.size()}")
         return self.q1_net.forward(torch.cat((obs, act),dim=1)), self.q2_net.forward(torch.cat((obs, act),dim=1))
 
 
@@ -54,7 +55,7 @@ class GaussianPolicyNetwork(nn.Module):
             - activation: nonlinear activation function  
         """        
         # create pi(s,a) network
-        self.pi_net = mlp(sizes=[obs_dim, *list(hidden_layer), act_dim], activation=activation, output_activation=nn.Tanh())
+        self.pi_net = mlp(sizes=[obs_dim, *list(hidden_layer), 2*act_dim], activation=activation, output_activation=nn.Tanh())
         self.n = act_dim
         #self.layer1 = nn.Linear(obs_dim, hidden_layer[0])
         #self.layer2 = nn.Linear(hidden_layer[0], hidden_layer[1])
@@ -76,9 +77,13 @@ class GaussianPolicyNetwork(nn.Module):
         @info compute mean(mu) and log standard-deviation (std)
         """
         #x = f.relu(self.layer2(f.relu(self.layer1(obs))))
-        x = self.pi_net.forward(obs)
-        mu = x[0:self.n]#self.mu_layer(x)
-        log_std = x[self.n:]#self.log_std_layer(x)
+        x = self.pi_net(obs)
+        if len(obs.size())>1:
+            mu = x[:,0:self.n]
+            log_std = x[:,self.n:]
+        else:
+            mu = x[0:self.n]
+            log_std = x[self.n:]
 
         # limit value of log_std
         log_std = torch.clamp(log_std, min=-20, max=2)
