@@ -18,7 +18,7 @@ def mlp(sizes, activation, output_activation=nn.Identity()):
 
 
 class DoubleQNetwork(nn.Module):
-    def __init__(self, obs_dim, act_dim, hidden_layer=(64,64), activation=nn.ReLU(), lr=1e-4):
+    def __init__(self, obs_dim, act_dim, hidden_layer=(256, 128, 64, 32), activation=nn.ReLU(), lr=1e-4):
         super().__init__()
         """
         @info: create two neural networks to predict Q(s,a). Consider, networks's input as torch.cat((obs, act))
@@ -42,7 +42,7 @@ class DoubleQNetwork(nn.Module):
 
 
 class GaussianPolicyNetwork(nn.Module):
-    def __init__(self, obs_dim, act_dim, action_space, hidden_layer=(64,64), lr=1e-4):
+    def __init__(self, obs_dim, act_dim, action_space, hidden_layer=(64,64), activation=nn.ReLU(), lr=1e-4):
         super().__init__()
         """
         @info: create a neural networks to predict mean(mu) and standar-deviation(std). Consider, networks's input torch.tensor(obs)
@@ -54,11 +54,15 @@ class GaussianPolicyNetwork(nn.Module):
             - activation: nonlinear activation function  
         """        
         # create pi(s,a) network
-        self.layer1 = nn.Linear(obs_dim, hidden_layer[0])
-        self.layer2 = nn.Linear(hidden_layer[0], hidden_layer[1])
+        self.pi_net = mlp(sizes=[obs_dim, *list(hidden_layer), act_dim], activation=activation, output_activation=nn.Tanh())
+        self.n = act_dim
+        #self.layer1 = nn.Linear(obs_dim, hidden_layer[0])
+        #self.layer2 = nn.Linear(hidden_layer[0], hidden_layer[1])
 
-        self.mu_layer = nn.Linear(hidden_layer[1], act_dim)
-        self.log_std_layer = nn.Linear(hidden_layer[1], act_dim)
+        #self.mu_layer = nn.Linear(hidden_layer[1], act_dim)
+        #self.log_std_layer = nn.Linear(hidden_layer[1], act_dim)
+
+
 
         # create optimizer
         self.optimizer = Adam(self.parameters(), lr=lr)
@@ -71,9 +75,10 @@ class GaussianPolicyNetwork(nn.Module):
         """
         @info compute mean(mu) and log standard-deviation (std)
         """
-        x = f.relu(self.layer2(f.relu(self.layer1(obs))))
-        mu = self.mu_layer(x)
-        log_std = self.log_std_layer(x)
+        #x = f.relu(self.layer2(f.relu(self.layer1(obs))))
+        x = self.pi_net.forward(obs)
+        mu = x[0:self.n]#self.mu_layer(x)
+        log_std = x[self.n:]#self.log_std_layer(x)
 
         # limit value of log_std
         log_std = torch.clamp(log_std, min=-20, max=2)
