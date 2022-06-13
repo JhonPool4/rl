@@ -37,7 +37,6 @@ class DoubleQNetwork(nn.Module):
         self.optimizer = Adam(self.parameters(), lr=lr)
 
     def forward(self, obs, act):
-        #print(f"obs: {obs.size()}, act: {act.size()}")
         return self.q1_net.forward(torch.cat((obs, act),dim=1)), self.q2_net.forward(torch.cat((obs, act),dim=1))
 
 
@@ -76,7 +75,6 @@ class GaussianPolicyNetwork(nn.Module):
         """
         @info compute mean(mu) and log standard-deviation (std)
         """
-        #x = f.relu(self.layer2(f.relu(self.layer1(obs))))
         x = self.pi_net(obs)
         if len(obs.size())>1:
             mu = x[:,0:self.n]
