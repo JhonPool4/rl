@@ -16,7 +16,8 @@ class SAC():
                 dir_name='./task/agent',
                 save_rate=100,
                 print_rate=10,
-                load_model=False):
+                load_model=False,
+                hidden_layers=list()):
         
         self.batch_size = batch_size
         self.gamma = gamma # discount factor
@@ -41,11 +42,11 @@ class SAC():
         self.logger = Logger(self.save_path, print_rate=print_rate, save_rate=save_rate, resume_training=load_model)
 
         # create Q networks: (i) target and (ii) predict
-        self.q_target = DoubleQNetwork(self.obs_dim, self.act_dim)
-        self.q_predict = DoubleQNetwork(self.obs_dim, self.act_dim)
+        self.q_target = DoubleQNetwork(self.obs_dim, self.act_dim, hidden_layers)
+        self.q_predict = DoubleQNetwork(self.obs_dim, self.act_dim, hidden_layers)
 
         # create policy
-        self.pi_net = GaussianPolicyNetwork(self.obs_dim, self.act_dim, env.action_space)
+        self.pi_net = GaussianPolicyNetwork(self.obs_dim, self.act_dim, env.action_space, hidden_layers)
 
         # automatic entropy
         self.target_entropy = -torch.prod(torch.Tensor(env.action_space.shape))
