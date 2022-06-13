@@ -6,3 +6,4 @@ trained_models/
 err.log
 out.log
 opensim.log
+bin/
