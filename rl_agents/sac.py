@@ -40,7 +40,8 @@ class SAC():
         # create buffer
         self.mem_buffer = MemoryBuffer(self.obs_dim, self.act_dim, mem_size, batch_size, load_model, self.save_path)
         # create logger
-        self.logger = Logger(self.save_path, print_rate=print_rate, save_rate=save_rate, resume_training=load_model)
+        column_names = ['epoch','score', 'pi_loss', 'q_loss', 'sim_timesteps']
+        self.logger = Logger(column_names, self.save_path, print_rate=print_rate, save_rate=save_rate, resume_training=load_model)
 
         # create Q networks: (i) target and (ii) predict
         self.q_target = DoubleQNetwork(self.obs_dim, self.act_dim, hidden_layers)
@@ -149,13 +150,14 @@ class SAC():
 
 
 
-    def learn(self, n_epochs, verbose=False, pulse_frequency_steps = None,plot_tensorboard = False):       
+    def learn(self, n_epochs, verbose=False, pulse_frequency_steps = None, plot_tensorboard = False):       
         print(f"================================")
         print(f"\tStarting Training")
         print(f"================================")
         # same networks
-        writer = SummaryWriter()
         self.update_target_networks(tau=1)
+        if plot_tensorboard:
+            writer = SummaryWriter()
         for epoch in range(1,n_epochs+1):
             # reset environment
             obs, reward, done = self.env.reset(verbose=verbose), 0, False
