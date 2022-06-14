@@ -3,6 +3,7 @@ from rl_utils import DoubleQNetwork
 from rl_utils import MemoryBuffer, Logger
 from rl_utils import print_info
 import torch
+from torch.utils.tensorboard import SummaryWriter
 from copy import copy
 import os
 
@@ -148,11 +149,12 @@ class SAC():
 
 
 
-    def learn(self, n_epochs, verbose=False, pulse_frequency_steps = None):       
+    def learn(self, n_epochs, verbose=False, pulse_frequency_steps = None,plot_tensorboard = False):       
         print(f"================================")
         print(f"\tStarting Training")
         print(f"================================")
         # same networks
+        writer = SummaryWriter()
         self.update_target_networks(tau=1)
         for epoch in range(1,n_epochs+1):
             # reset environment
@@ -182,7 +184,13 @@ class SAC():
                 if self.mem_buffer.allow_sample:
                     self.update_agent_parameters()
                     self.update_target_networks(tau=0.05) 
-                #loading bar                   
+                
+            # plot epoch avg loss to tensorboard server
+            if plot_tensorboard and len(self.logger.data['pi_loss'])>0:
+                writer.add_scalar('pi_loss', sum(self.logger.data['pi_loss'])/len(self.logger.data['pi_loss']), epoch+self.logger.last_epoch)
+                writer.add_scalar('Q_Loss', sum(self.logger.data['q_loss'])/len(self.logger.data['q_loss']), epoch+self.logger.last_epoch)
+                writer.add_scalar('Score', score, epoch+self.logger.last_epoch)
+
      
             # just to print data
             self.logger.data['score'].append(score)
