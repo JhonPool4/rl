@@ -6,14 +6,14 @@ from .color_print import print_info
 import csv
 
 class Logger():
-    def __init__(self, save_path, print_rate=100, save_rate=100, resume_training=False):
+    def __init__(self, column_names=list(),save_path='task/agent', print_rate=100, save_rate=100, resume_training=False):
         self.best_score = -1000
         self.print_rate = print_rate
         self.save_rate = save_rate
                
         # create data frame structure
         self.data_path = os.path.join(save_path, 'training_data')
-        self.column_names=['epoch','score', 'pi_loss', 'q_loss', 'sim_time']
+        self.column_names=column_names#['epoch','score', 'pi_loss', 'q_loss', 'sim_time']
 
         # create new file
         if not resume_training:
