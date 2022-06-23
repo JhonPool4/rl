@@ -282,11 +282,16 @@ class Arm1DEnv(object):
         self.reset_manager()
 
     def get_goal_angle(self, metric):
+        reward = 0
         if abs(metric) <=np.deg2rad(5):
             _GOALS['state']= not _GOALS['state']
             self.goals_achieved+=1
             print(f"goals achieved: {self.goals_achieved}")
-        return _GOALS['upper'] if _GOALS['state'] else _GOALS['lower']
+            reward = _REWARD['goal_achieved'] 
+
+        return reward, _GOALS['upper'] if _GOALS['state'] else  _GOALS['lower']
+
+
 
 
     def reset(self, verbose=False):
@@ -298,7 +303,7 @@ class Arm1DEnv(object):
         # compute wrist position
         self.user_parameters = self.get_user_parameters()
 
-        self.goal_angle = self.get_goal_angle(metric=100)
+        _, self.goal_angle = self.get_goal_angle(metric=100)
         # reset model variables
         self.reset_model(init_pos=init_joint_pos, 
                         bullet_pos=self.user_parameters) 
@@ -359,7 +364,8 @@ class Arm1DEnv(object):
         reward -= 0.005*(obs_dict['r_elbow_vel'])**2 # punishment for high velocity
 
         # goal condition
-        self.goal_angle = self.get_goal_angle(metric=distance)
+        goal_reward, self.goal_angle = self.get_goal_angle(metric=distance)
+        reward += goal_reward
 
         # terminal condition: nan observation
         if np.isnan(obs).any(): # check is there are nan values 
