@@ -114,10 +114,10 @@ class Arm1DEnv(object):
         self._brain = osim.PrescribedController()
         # quantity of muscles
         if self.with_fes:
-            self._n_muscles = 2
+            self._n_actions = 2
         else:
-            self._n_muscles = self._muscles.getSize()
-
+            self._n_actions = self._muscles.getSize()
+        self._n_muscles = self._muscles.getSize()
         # Add muscle-actuators with constant-type function
         for idx in range(self._n_muscles):
             self._brain.addActuator(self._muscles.get(idx)) # add actuator for each muscle
@@ -147,9 +147,9 @@ class Arm1DEnv(object):
                                             high=high, \
                                             shape=(n_obs,))
         # action space
-        self.action_space = spaces.Box(low=np.zeros((self._n_muscles,), dtype=np.float32), \
-                                        high=np.ones((self._n_muscles,), dtype=np.float32), \
-                                        shape=(self._n_muscles,))       
+        self.action_space = spaces.Box(low=np.zeros((self._n_actions,), dtype=np.float32), \
+                                        high=np.ones((self._n_actions,), dtype=np.float32), \
+                                        shape=(self._n_actions,))       
                                         
         self.goals_achieved = 0
 
@@ -329,11 +329,14 @@ class Arm1DEnv(object):
 
     def step(self, act):
         # mean muscle's activation
+        #print(f'action: {act}')
         if self.with_fes:
             action = np.zeros((6,),dtype=float)
             action[0:3] = act[0] # triceps
             action[3:5] = act[1] # biceps 
             action[5] = 0
+        #print(f'biceps= {action[3:5]}')
+        #print(f'triceps= {action[0:3]}')
         
         # muscle's activation
         if self._visualize and self._show_act_plot:
