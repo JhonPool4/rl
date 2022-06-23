@@ -1,3 +1,4 @@
+
 from rl_utils import GaussianPolicyNetwork
 from rl_utils import DoubleQNetwork
 from rl_utils import MemoryBuffer, Logger
@@ -45,10 +46,10 @@ class SAC():
 
         # create Q networks: (i) target and (ii) predict
         self.q_target = DoubleQNetwork(self.obs_dim, self.act_dim, hidden_layers)
-        self.q_predict = DoubleQNetwork(self.obs_dim, self.act_dim, hidden_layers)
+        self.q_predict = DoubleQNetwork(self.obs_dim, self.act_dim, hidden_layers,lr=1e-3)
 
         # create policy
-        self.pi_net = GaussianPolicyNetwork(self.obs_dim, self.act_dim, env.action_space, hidden_layers)
+        self.pi_net = GaussianPolicyNetwork(self.obs_dim, self.act_dim, env.action_space, hidden_layers,lr=1e-3)
 
         # automatic entropy
         self.target_entropy = -torch.prod(torch.Tensor(env.action_space.shape))
@@ -59,6 +60,11 @@ class SAC():
         if load_model:
             self.load_agent_parameters(load_path=self.save_path, last_epoch=self.logger.last_epoch)
             self.alpha=self.log_alpha.exp() 
+
+        #params for modifying the lr during training
+        
+        self.scheduler_pi =torch.optim.lr_scheduler.ReduceLROnPlateau(self.pi_net.optimizer, mode='min', factor=0.1, patience=15, threshold=.1, threshold_mode='abs', cooldown=15, min_lr=0, eps=1e-05, verbose=False)
+        self.scheduler_Q = torch.optim.lr_scheduler.ReduceLROnPlateau(self.q_predict.optimizer, mode='min', factor=0.1, patience=15, threshold=1, threshold_mode='abs', cooldown=15, min_lr=0, eps=1e-05, verbose=False)
 
     def save_agent_parameters(self, save_path, epoch):
         new_model_save_path = os.path.join(save_path,'agent_parameters', str(epoch))
@@ -146,11 +152,10 @@ class SAC():
         # just to print
         self.logger.data['pi_loss'].append(pi_loss.detach())
         self.logger.data['q_loss'].append(q_loss.detach())
+    
 
 
-
-
-    def learn(self, n_epochs, verbose=False, pulse_frequency_steps = None, plot_tensorboard = False):       
+    def learn(self, n_epochs, verbose=False, pulse_frequency_steps = None, plot_tensorboard = False,lr=1e-3):       
         print(f"================================")
         print(f"\tStarting Training")
         print(f"================================")
@@ -158,6 +163,8 @@ class SAC():
         self.update_target_networks(tau=1)
         if plot_tensorboard:
             writer = SummaryWriter()
+        
+            
         for epoch in range(1,n_epochs+1):
             # reset environment
             obs, reward, done = self.env.reset(verbose=verbose), 0, False
@@ -186,17 +193,28 @@ class SAC():
                 if self.mem_buffer.allow_sample:
                     self.update_agent_parameters()
                     self.update_target_networks(tau=0.05) 
+                    #self.change_all_nn_lr(epoch+self.logger.last_epoch)
+            if self.mem_buffer.allow_sample:
+                self.scheduler_Q.step(self.logger.data['q_loss'][-1])
+                self.scheduler_pi.step(self.logger.data['pi_loss'][-1])
                 
             # plot epoch avg loss to tensorboard server
             if plot_tensorboard and len(self.logger.data['pi_loss'])>0:
-                writer.add_scalar('pi_loss', sum(self.logger.data['pi_loss'])/len(self.logger.data['pi_loss']), epoch+self.logger.last_epoch)
-                writer.add_scalar('Q_Loss', sum(self.logger.data['q_loss'])/len(self.logger.data['q_loss']), epoch+self.logger.last_epoch)
+                writer.add_scalar(f'Loss/pi_loss', self.logger.data['pi_loss'][-1], epoch+self.logger.last_epoch)
+                writer.add_scalar(f'Loss/Q_Loss', self.logger.data['q_loss'][-1], epoch+self.logger.last_epoch)
                 writer.add_scalar('Score', score, epoch+self.logger.last_epoch)
+                for name, param in self.pi_net.named_parameters():
+                    writer.add_scalar('pi_net_params/'+ name, param.data.mean(), epoch+self.logger.last_epoch)
+                for name, param in self.q_predict.named_parameters():
+                    writer.add_scalar('Q_predict_params/'+ name, param.data.mean(), epoch+self.logger.last_epoch)
+                writer.add_scalar('Learing Rate Pi', self.pi_net.optimizer.param_groups[0]['lr'], epoch+self.logger.last_epoch)
+                writer.add_scalar('Learing Rate Q', self.q_predict.optimizer.param_groups[0]['lr'], epoch+self.logger.last_epoch)
+                
 
      
             # just to print data
             self.logger.data['score'].append(score)
-            self.logger.data['sim_time'].append(info['sim_timesteps'])
+            self.logger.data['sim_timesteps'].append(info['sim_timesteps'])
             self.logger.print_data_buf(epoch=epoch, verbose=verbose)
 
             # save neural network parameters
