@@ -21,17 +21,22 @@ _MUSCLE_LIST = ["TRIlong", "BIClong"]
 # vel: rad/s
 # x,y: meters
 # activation: ?
-_JOINT_MAX = {"r_shoulder":{'pos':np.deg2rad(180), 'vel': np.deg2rad(180)}, \
-              "r_elbow":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}}
+_JOINT_MAX = {"r_shoulder":{'vel': np.deg2rad(180)}, \
+              "r_elbow":{'vel': np.deg2rad(180)}}
 
-_JOINT_MIN = {"r_shoulder":{'pos':np.deg2rad(-90), 'vel': -np.deg2rad(180)}, \
-              "r_elbow":{'pos':np.deg2rad(0), 'vel': -np.deg2rad(180)}}
+_JOINT_MIN = {"r_shoulder":{'vel': -np.deg2rad(180)}, \
+              "r_elbow":{'vel': -np.deg2rad(180)}}
+#_JOINT_MAX = {"r_shoulder":{'pos':np.deg2rad(180), 'vel': np.deg2rad(180)}, \
+#              "r_elbow":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}}
+#
+#_JOINT_MIN = {"r_shoulder":{'pos':np.deg2rad(-90), 'vel': -np.deg2rad(180)}, \
+#              "r_elbow":{'pos':np.deg2rad(0), 'vel': -np.deg2rad(180)}}
 
 _MAX_LIST = {"pos_des":{'x':0.5, 'y':0.8}, \
-            #"r_shoulder":{'pos':np.deg2rad(180), 'vel': np.deg2rad(180)}, \
-            #"r_elbow":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)}, \
             "r_humerus_epicondyle":{'x':0.33, 'dx':1, 'y':0.85, 'dy':1}, \
             "r_radius_styloid":{'x':0.57, 'dx':1, 'y':0.85, 'dy':1} , \
+            "r_shoulder":{'pos':np.deg2rad(180)}, \
+            "r_elbow":{'pos':np.deg2rad(150)}, \
             "TRIlong": {"act":1},\
             #"TRIlat": {"act":1},\
             #"TRImed": {"act":1},\
@@ -40,10 +45,10 @@ _MAX_LIST = {"pos_des":{'x':0.5, 'y':0.8}, \
             #"BRA": {"act":1}}
 
 _MIN_LIST = {"pos_des":{'x':-0.5, 'y':0.27}, \
-            #"r_shoulder":{'pos':np.deg2rad(-90), 'vel': -np.deg2rad(180)}, \
-            #"r_elbow":{'pos':np.deg2rad(0), 'vel': -np.deg2rad(180)}, \
             "r_humerus_epicondyle":{'x':-0.36, 'dx':-1, 'y':0.5, 'dy':-1}, \
             "r_radius_styloid":{'x':-0.59, 'dx':-1, 'y':0.25, 'dy':-1}, \
+            "r_shoulder":{'pos':np.deg2rad(-90)}, \
+            "r_elbow":{'pos':np.deg2rad(0)}, \
             "TRIlong": {"act":0},\
             #"TRIlat": {"act":0},\
             #"TRImed": {"act":0},\
@@ -179,7 +184,10 @@ class Arm2DEnv(object):
         # - vel: x, y
         # marker wrist
         # - pos: x, y
-        # - vel: x, y        
+        # - vel: x, y 
+        # joint
+        # - pos: shoulder
+        # - pos: elbow       
         # muscles
         # - tri
         # - bi
@@ -196,7 +204,10 @@ class Arm2DEnv(object):
             for axis_name in range(len(_AXIS_LIST)):
                 obs.append(self._markers.get(marker_name).getLocationInGround(self._state)[axis_name])
                 obs.append(self._markers.get(marker_name).getVelocityInGround(self._state)[axis_name])
-
+        #joint pos 
+        for joint_name in _JOINT_LIST:
+            obs.append(self._joints.get(joint_name).getCoordinate().getValue(self._state))
+            #obs.append(self._joints.get(joint_name).getCoordinate().getSpeedValue(self._state))
         # muscle activation
         for muscle_name in _MUSCLE_LIST:             
             obs.append(self._muscles.get(muscle_name).getActivation(self._state))
@@ -207,7 +218,7 @@ class Arm2DEnv(object):
         obs = []
         # joint position
         for joint_name in _JOINT_LIST:
-            obs.append(self._joints.get(joint_name).getCoordinate().getValue(self._state))
+            #obs.append(self._joints.get(joint_name).getCoordinate().getValue(self._state))
             obs.append(self._joints.get(joint_name).getCoordinate().getSpeedValue(self._state))
 
         high = [var for lvl1 in _JOINT_MAX.values() for var in lvl1.values()] 
@@ -227,8 +238,8 @@ class Arm2DEnv(object):
 
     def initial_joint_configuration(self):
         if not self._fixed_init:
-            init_pos =  [uniform(0.001*_JOINT_MIN['r_shoulder']['pos'], 0.001*_JOINT_MAX['r_shoulder']['pos']), \
-                         uniform(_JOINT_MIN['r_elbow']['pos']+np.deg2rad(10), _JOINT_MAX['r_elbow']['pos']-np.deg2rad(10))]
+            init_pos =  [uniform(0.001*_MIN_LIST['r_shoulder']['pos'], 0.001*_MAX_LIST['r_shoulder']['pos']), \
+                         uniform(_MIN_LIST['r_elbow']['pos']+np.deg2rad(10), _MAX_LIST['r_elbow']['pos']-np.deg2rad(10))]
             return dict(zip(_JOINT_LIST, init_pos))
         else:
             return {name:_INIT_POS[name] for name in _JOINT_LIST}
@@ -240,7 +251,7 @@ class Arm2DEnv(object):
             radio = _DES_PARAM["radio"]
             return  {'x':radio*np.cos(theta), 'y':radio*np.sin(theta) + 0.563}
         else:
-            theta = uniform(_JOINT_MIN["r_elbow"]["pos"], 0.7*_JOINT_MAX["r_elbow"]["pos"]) - np.deg2rad(70)
+            theta = uniform(_MIN_LIST["r_elbow"]["pos"], 0.7*_MAX_LIST["r_elbow"]["pos"]) - np.deg2rad(70)
             radio = _DES_PARAM["radio"]
 
             return {'x':radio*np.cos(theta), 'y':radio*np.sin(theta) + 0.563}   
@@ -285,8 +296,8 @@ class Arm2DEnv(object):
         # set initial position
         if init_pos is not None:
             for joint_name in _JOINT_LIST:
-                self._joints.get(joint_name).upd_coordinates(0).setRangeMax(_JOINT_MAX[joint_name]['pos'])
-                self._joints.get(joint_name).upd_coordinates(0).setRangeMin(_JOINT_MIN[joint_name]['pos'])                  
+                self._joints.get(joint_name).upd_coordinates(0).setRangeMax(_MAX_LIST[joint_name]['pos'])
+                self._joints.get(joint_name).upd_coordinates(0).setRangeMin(_MIN_LIST[joint_name]['pos'])                  
                 self._joints.get(joint_name).upd_coordinates(0).setDefaultValue(init_pos[joint_name])
                 self._joints.get(joint_name).upd_coordinates(0).setDefaultSpeedValue(0.0)
                 self._joints.get(joint_name).upd_coordinates(0).setDefaultClamped(True)
@@ -366,6 +377,7 @@ class Arm2DEnv(object):
         # get environemnt observations
         obs, obs_dict = self.get_observations()
         obs=self.normalize_observations(obs)      
+        joint_vel,joint_vel_norm = self.get_joint_states()
 
         # compute distance from wrist to target point
         distance = ((obs_dict['pos_des_x']-obs_dict['r_radius_styloid_x'])**2 +\
@@ -373,7 +385,8 @@ class Arm2DEnv(object):
         # reward system
         reward = self.gaussian_reward(metric=distance, max_error=0.3) # reward to achieve desired position 
         reward -= 0.01*sum(action) # punishment for inefficient motion
-       
+        reward -= 0.05*sum(joint_vel)/len(joint_vel)
+
         # terminal condition: nan observation
         if np.isnan(obs).any(): # check is there are nan values 
             #print_warning(f"terminal state for nan observations")
@@ -386,9 +399,10 @@ class Arm2DEnv(object):
             return obs, reward, True, {'sim_timesteps':self._sim_timesteps}
 
         # terminal condition: out  of bounds (joint pos or vel)
-        joint_obs, norm_joint_obs = self.get_joint_states()
+        #joint_obs, norm_joint_obs = self.get_joint_states()
         joint_names = [key+'_'+name for key, val in _JOINT_MAX.items() for name in val.keys()]
-
+        norm_joint_obs = [obs[10], obs[11]]
+        joint_obs = [obs_dict['r_shoulder_pos'],obs_dict['r_elbow_pos']]
         if not np.logical_and(np.all(np.array(norm_joint_obs)<=1), np.all(np.array(norm_joint_obs)>=0)):
             #print_warning(f"terminal state for weird joint position or velocity")
             for name, val, norm_val  in zip(joint_names, joint_obs, norm_joint_obs):
