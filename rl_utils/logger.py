@@ -54,7 +54,7 @@ class Logger():
                                         self.data['score'][-1], \
                                         self.data['pi_loss'][-1].item(), \
                                         self.data['q_loss'][-1].item(), \
-                                        self.data['sim_time'][-1]])
+                                        self.data['sim_timesteps'][-1]])
             # print training data
             # new best score
             if self.data['score'][-1]>self.best_score:
@@ -62,13 +62,16 @@ class Logger():
             if epoch%self.print_rate==0 and len(self.data['pi_loss'])>=self.print_rate:
                 # compute average values
                 mean_pi_loss = sum(self.data['pi_loss'][-self.print_rate:])/self.print_rate
-                mean_q_loss = sum(self.data['q_loss'][-self.print_rate:])/self.print_rate    
-                mean_score = sum(self.data['score'])/len(self.data['score'])
+                mean_q_loss = sum(self.data['q_loss'][-self.print_rate:])/self.print_rate 
+                if len(self.data['score']) <101:
+                    mean_score = sum(self.data['score'])/len(self.data['score'])
+                else:
+                    mean_score = sum(self.data['score'][-100:-1])/len(self.data['score'][-100:-1])
                     
                 
                 # just to print
                 if verbose:            
-                    print(f"epoch: {self.last_epoch+epoch}, t: {self.data['sim_time'][-1]}, s: {self.data['score'][-1]:.1f}, avg_s: {mean_score:.1f}, best_s: {self.best_score:.1f}, pi_l: {mean_pi_loss:.2f}, q_l: {mean_q_loss:.2f}") 
+                    print(f"epoch: {self.last_epoch+epoch}, t: {self.data['sim_timesteps'][-1]}, s: {self.data['score'][-1]:.1f}, avg_s: {mean_score:.1f}, best_s: {self.best_score:.1f}, pi_l: {mean_pi_loss:.2f}, q_l: {mean_q_loss:.2f}") 
                     print(f"")  
 
     def reset_data_buffer(self):
@@ -76,7 +79,7 @@ class Logger():
         self.data['pi_loss'] = []
         self.data['q_loss'] = []
         self.data['score'] = []   
-        self.data['sim_time']=[]         
+        self.data['sim_timesteps']=[]         
         # close file
         self.close_csv_handle()
         # open file
