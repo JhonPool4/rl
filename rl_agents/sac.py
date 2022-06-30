@@ -63,8 +63,8 @@ class SAC():
 
         #params for modifying the lr during training
         
-        self.scheduler_pi =torch.optim.lr_scheduler.ReduceLROnPlateau(self.pi_net.optimizer, mode='min', factor=0.1, patience=15, threshold=.1, threshold_mode='abs', cooldown=15, min_lr=0, eps=1e-05, verbose=False)
-        self.scheduler_Q = torch.optim.lr_scheduler.ReduceLROnPlateau(self.q_predict.optimizer, mode='min', factor=0.1, patience=15, threshold=1, threshold_mode='abs', cooldown=15, min_lr=0, eps=1e-05, verbose=False)
+        self.scheduler_pi =torch.optim.lr_scheduler.ReduceLROnPlateau(self.pi_net.optimizer, mode='min', factor=0.9, patience=100, threshold=.1, threshold_mode='abs', cooldown=100, min_lr=1e-4, eps=1e-08, verbose=False)
+        self.scheduler_Q = torch.optim.lr_scheduler.ReduceLROnPlateau(self.q_predict.optimizer, mode='min', factor=0.9, patience=100, threshold=.1, threshold_mode='abs', cooldown=100, min_lr=1e-4, eps=1e-08, verbose=False)
 
     def save_agent_parameters(self, save_path, epoch):
         new_model_save_path = os.path.join(save_path,'agent_parameters', str(epoch))
@@ -194,6 +194,7 @@ class SAC():
                     self.update_agent_parameters()
                     self.update_target_networks(tau=0.05) 
                     #self.change_all_nn_lr(epoch+self.logger.last_epoch)
+                
             if self.mem_buffer.allow_sample:
                 self.scheduler_Q.step(self.logger.data['q_loss'][-1])
                 self.scheduler_pi.step(self.logger.data['pi_loss'][-1])
