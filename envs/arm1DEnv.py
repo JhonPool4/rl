@@ -5,6 +5,7 @@ from gym import spaces
 from rl_utils import print_warning
 from rl_utils.plotter import Plotter
 from random import uniform
+from copy import copy
 
 """
 p_shouler = [ -0.013; 0.840];
@@ -26,20 +27,29 @@ _USER_INSTANCE_PARAM=['radius','mass','torque']
 _GOALS ={'state':True, 'upper':np.deg2rad(140), 'lower':np.deg2rad(10)}
 
 _MAX_LIST = {"r_elbow":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)},
-            "user_instance":{'radius':0.40, 'mass':15, 'torque':51.5},
-            "TRIlong": {"act":1},
+            "user_instance":{'radius':0.35, 'mass':5, 'torque':51.5},
+            "TRIlong": {"act":1},\
+            #"TRIlat": {"act":1},\
+            #"TRImed": {"act":1},\
             "BIClong": {"act":1},
+            #"BICshort": {"act":1},
+            #"BRA": {"act":1},
             "goal": {"angle":_GOALS['upper']}}
 
 _MIN_LIST = {"r_elbow":{'pos':np.deg2rad(0), 'vel': np.deg2rad(-180)},
-            "user_instance":{'radius':0.20, 'mass':1, 'torque':0},
-            "TRIlong": {"act":0},
+            "user_instance":{'radius':0.25, 'mass':4, 'torque':0},
+            "TRIlong": {"act":0},\
+            #"TRIlat": {"act":0},\
+            #"TRImed": {"act":0},\
             "BIClong": {"act":0},
+            #"BICshort": {"act":0},
+            #"BRA": {"act":0},
             "goal": {"angle":_GOALS['lower']}}
 
-_MUSCLE_LIST = ["TRIlong", "BIClong"]            
+_MUSCLE_LIST = ["TRIlong", "BIClong"]#["TRIlong", "TRIlat", "TRImed", \
+                                        #"BIClong", "BICshort", "BRA"]                
 _INIT_POS = {'r_shoulder':0, 'r_elbow':np.deg2rad(10)}
-_REWARD = {'nan':-5, 'weird_joint_pos':-1, 'goal_achieved':3}     
+_REWARD = {'nan':-5, 'weird_joint_pos':-2,'pace_keeper':-2, 'goal_achieved':5}     
 
 
 
@@ -151,7 +161,7 @@ class Arm1DEnv(object):
                                         high=np.ones((self._n_actions,), dtype=np.float32), \
                                         shape=(self._n_actions,))       
                                         
-        self.goals_achieved = 0
+        self.first_time = True
 
 
     def get_user_parameters(self):
@@ -195,7 +205,6 @@ class Arm1DEnv(object):
 
         # desired elbow angular position
         obs.append(self.goal_angle)            
-
         return obs, dict(zip(self.obs_names, obs))
 
     def normalize_observations(self, obs):    
@@ -281,13 +290,23 @@ class Arm1DEnv(object):
         # forward dynamics manager
         self.reset_manager()
 
-    def get_goal_angle(self, metric):
+    def get_goal_angle(self,metric):
         reward = 0
-        if abs(metric) <=np.deg2rad(5):
+        if self._sim_timesteps % (self._max_sim_timesteps/4) ==0 and self._sim_timesteps != 0 and not self.first_time:
             _GOALS['state']= not _GOALS['state']
-            self.goals_achieved+=1
-            print(f"goals achieved: {self.goals_achieved}")
+            print(f'new goal... changed at t= {self._sim_timesteps}')
             reward = _REWARD['goal_achieved'] 
+            self.first_time = True
+        elif abs(metric)<np.deg2rad(5) and self.first_time:
+            print(f'metric: {np.rad2deg(metric)}, goal angle: {np.rad2deg(self.goal_angle)}')
+            self.first_time = False
+            print(f"Another goal achieved in {self._sim_timesteps/100} seconds!")
+        #if self._sim_timesteps % (self._max_sim_timesteps/4) ==0 and _GOALS['state']:
+         #   value = _GOALS['upper']
+          #  print(f'new goal is {value} changed at t= {self._sim_timesteps}')
+        #else:
+         #   value = np.rad2deg(_GOALS['lower'])
+          #  print(f'new goal is {value} changed at t= {self._sim_timesteps}')
 
         return reward, _GOALS['upper'] if _GOALS['state'] else  _GOALS['lower']
 
@@ -295,7 +314,9 @@ class Arm1DEnv(object):
 
 
     def reset(self, verbose=False):
-        self.goals_achieved= 0
+        self.first_time = True
+        _GOALS['state'] = True
+       
 
         # compute intitial joint configuration
         init_joint_pos = self.initial_joint_configuration()
@@ -303,10 +324,14 @@ class Arm1DEnv(object):
         # compute wrist position
         self.user_parameters = self.get_user_parameters()
 
-        _, self.goal_angle = self.get_goal_angle(metric=100)
+        
         # reset model variables
         self.reset_model(init_pos=init_joint_pos, 
-                        bullet_pos=self.user_parameters) 
+                        bullet_pos=self.user_parameters)
+
+        _, self.goal_angle = self.get_goal_angle(metric=100)
+        #print(f'goal angle: {self.goal_angle}')
+
         # get observations
         obs, obs_dict = self.get_observations()
         if verbose:
@@ -321,8 +346,10 @@ class Arm1DEnv(object):
             self._mus_plot.reset()
             self._angle_plot.reset()
         # get observations and normalize
+        
         obs = self.normalize_observations(obs)
 
+        
         return obs
 
 
@@ -337,12 +364,14 @@ class Arm1DEnv(object):
         #print(f'action: {act}')
         if self.with_fes:
             action = np.zeros((6,),dtype=float)
-            action[0:3] = act[0] # triceps
-            action[3:5] = act[1] # biceps 
-            action[5] = 0
+            action[0:3] = act[0]#act[0] # triceps
+            action[3:6] = act[1] # biceps 
+            #action[5] = 0
+            
+        else:
+            action = copy(act)
         #print(f'biceps= {action[3:5]}')
         #print(f'triceps= {action[0:3]}')
-        
         # muscle's activation
         if self._visualize and self._show_act_plot:
             self._mus_plot.add_data(time=self._sim_timesteps*self._step_size, act=action)
@@ -357,15 +386,23 @@ class Arm1DEnv(object):
         obs=self.normalize_observations(obs)      
 
         # compute distance from wrist to target point
+        #print(f"goal_angle = {obs_dict['goal_angle']}")
         distance = obs_dict['goal_angle']-obs_dict['r_elbow_pos']
         # reward system
         reward = self.gaussian_reward(metric=distance, max_error=np.deg2rad(140)) # reward to achieve desired position 
         reward -= 0.001*sum(action) # punishment for inefficient motion
-        reward -= 0.005*(obs_dict['r_elbow_vel'])**2 # punishment for high velocity
+        reward -= 0.002*(obs_dict['r_elbow_vel'])**2 # punishment for high velocity
+
+        # If first goal not achieved before half of max sim time, end simulation and give negative reward
+        if self._sim_timesteps%(self._max_sim_timesteps/4) ==0 and self.first_time:
+            print(f'Did not achieve goal fast enough. t = {self._sim_timesteps}')
+            return obs, _REWARD['pace_keeper'], True, {'sim_timesteps':self._sim_timesteps}
+
 
         # goal condition
         goal_reward, self.goal_angle = self.get_goal_angle(metric=distance)
         reward += goal_reward
+        
 
         # terminal condition: nan observation
         if np.isnan(obs).any(): # check is there are nan values 
@@ -377,10 +414,13 @@ class Arm1DEnv(object):
         # terminal condition: max simulation steps reached
         if not self._sim_timesteps < self._max_sim_timesteps:
             return obs, reward, True, {'sim_timesteps':self._sim_timesteps}
+        
+        
 
         # terminal condition: out  of bounds (joint pos or vel)
 
         if not np.logical_and(obs[0]<=1, obs[0]>=0):
+            print('Died due to exceeding joint limits!')
             return obs, _REWARD['weird_joint_pos'], True, {'sim_timesteps':self._sim_timesteps}
         
         # all fine
