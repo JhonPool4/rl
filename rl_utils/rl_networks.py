@@ -61,16 +61,16 @@ class GaussianPolicyNetwork(nn.Module):
 
         #self.mu_layer = nn.Linear(hidden_layer[1], act_dim)
         #self.log_std_layer = nn.Linear(hidden_layer[1], act_dim)
-
+        self.lr = lr
 
 
         # create optimizer
-        self.optimizer = Adam(self.parameters(), lr=lr)
+        self.optimizer = Adam(self.parameters(), lr=self.lr)
 
         # represent from [-1 +1] to action space
         self.action_scale = torch.tensor((action_space.high - action_space.low)/2, dtype=torch.float32)
         self.action_bias = torch.tensor((action_space.high + action_space.low)/2, dtype=torch.float32)
-
+        
     def forward(self, obs):
         """
         @info compute mean(mu) and log standard-deviation (std)
