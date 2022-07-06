@@ -1,14 +1,12 @@
-from envs import Arm2DEnv
+from envs import Arm1DEnv
 from rl_agents import SAC
 
 
 # create environemnt
-env = Arm2DEnv(sim_time=4, 
-                visualize=False,
-                show_act_plot=True,
-                show_goal=True, 
-                fixed_init=False, 
-                fixed_target=False,
+env = Arm1DEnv(sim_time=12, 
+                visualize=True,
+                show_act_plot=False,
+                fixed_init=True, 
                 integrator_accuracy=1e-5,
                 step_size=1e-2,
                 with_fes = True)
@@ -19,15 +17,15 @@ agent = SAC(env=env,
             batch_size=500, 
             gamma=0.99, 
             alpha=1.0, 
-            dir_name='arm_7\\sac', 
-            save_rate=500, 
+            dir_name='Arm1DEnv_FES_brach_freq_1_nn_64_32_16\\sac', 
+            save_rate=10, 
             print_rate=1, 
-            load_model=False,
-            hidden_layers=(256,128,64,32))            
+            load_model=True,
+            hidden_layers=(64,32,16))            
 
 
-    
+
 # train agent
-agent.learn(n_epochs=20000, verbose=True, pulse_frequency_steps = 3)
+#agent.learn(n_epochs=1000000, verbose=True, pulse_frequency_steps = 1, plot_tensorboard =True)
 
-#agent.test(n_attemps=10, verbose=True, pulse_frequency_steps = 3)
+agent.test(n_attemps=30, verbose=True, pulse_frequency_steps = 1)
