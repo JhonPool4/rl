@@ -312,10 +312,10 @@ class Arm1DEnv(object):
         if self._visualize:
             self._target_joint.get_coordinates(0).setValue(self._state, 0, False)
             self._target_joint.get_coordinates(0).setLocked(self._state, True)
-            self._target_joint.get_coordinates(1).setValue(self._state, _INIT_FRAME['x']+0.24*np.sin(self.goal_angle), False)
+            self._target_joint.get_coordinates(1).setValue(self._state, _INIT_FRAME['x']+user_parameters['radius']*np.sin(self.goal_angle), False)
             self._target_joint.get_coordinates(1).setLocked(self._state, True)
             self._target_joint.get_coordinates(2).setLocked(self._state, False)
-            self._target_joint.get_coordinates(2).setValue(self._state, _INIT_FRAME['y']-0.24*np.cos(self.goal_angle), False)
+            self._target_joint.get_coordinates(2).setValue(self._state, _INIT_FRAME['y']-user_parameters['radius']*np.cos(self.goal_angle), False)
             self._target_joint.get_coordinates(2).setLocked(self._state, True)            
 
         # compute length of fibers based on the state (important!)
@@ -406,8 +406,8 @@ class Arm1DEnv(object):
         distance = obs_dict['goal_angle']-obs_dict['r_elbow_pos']
         # reward system
         reward = self.gaussian_reward(metric=distance, max_error=np.deg2rad(140)) # reward to achieve desired position 
-        reward -= 0.001*sum(action) # punishment for inefficient motion
-        reward -= 0.002*(obs_dict['r_elbow_vel'])**2 # punishment for high velocity
+        reward -= 0.01*sum(action) # punishment for inefficient motion
+        reward -= 0.02*(obs_dict['r_elbow_vel'])**2 # punishment for high velocity
 
         # If first goal not achieved before half of max sim time, end simulation and give negative reward
         #if self._sim_timesteps%(self._max_sim_timesteps/4) ==0 and self.first_time:
