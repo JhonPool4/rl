@@ -352,8 +352,10 @@ class Arm1DEnv(object):
         # get observations
         obs, obs_dict = self.get_observations()
         if verbose:
+            print(f"="*20)
             print(f"radius: {self.user_parameters['radius']:.3f}")
-            print(f"goal pos: {obs_dict['goal_angle']:.3f}")
+            print(f"goal pos: {np.rad2deg(obs_dict['goal_angle']):.3f}")
+            print(f"elbow pos: {np.rad2deg(obs_dict['r_elbow_pos']):.3f}")
             #print(f"shoulder pos: {obs_dict['r_acromion_x']:.3f}, {obs_dict['r_acromion_y']:.3f}")
             #print(f"elbow pos: {obs_dict['r_humerus_epicondyle_x']:.3f}, {obs_dict['r_humerus_epicondyle_y']:.3f}")
             #print(f"wrist pos: {obs_dict['r_radius_styloid_x']:.3f}, {obs_dict['r_radius_styloid_y']:.3f}")
@@ -406,13 +408,10 @@ class Arm1DEnv(object):
         distance = obs_dict['goal_angle']-obs_dict['r_elbow_pos']
         # reward system
         reward = self.gaussian_reward(metric=distance, max_error=np.deg2rad(140)) # reward to achieve desired position 
-        reward -= 0.01*sum(action) # punishment for inefficient motion
-        reward -= 0.02*(obs_dict['r_elbow_vel'])**2 # punishment for high velocity
+        reward -= 0.05*sum(action) # punishment for inefficient motion
+        reward -= 0.03*(obs_dict['r_elbow_vel'])**2 # punishment for high velocity
 
-        # If first goal not achieved before half of max sim time, end simulation and give negative reward
-        #if self._sim_timesteps%(self._max_sim_timesteps/4) ==0 and self.first_time:
-        #    print(f'Did not achieve goal fast enough. t = {self._sim_timesteps}')
-        #    return obs, _REWARD['pace_keeper'], True, {'sim_timesteps':self._sim_timesteps}
+
 
 
         # goal condition
@@ -427,16 +426,22 @@ class Arm1DEnv(object):
             obs = np.clip(obs, 0, 1)
             return obs, _REWARD['nan'], True, {'sim_timesteps':self._sim_timesteps}
 
-        # terminal condition: max simulation steps reached
-        if not self._sim_timesteps < self._max_sim_timesteps:
-            return obs, reward, True, {'sim_timesteps':self._sim_timesteps}
-        
-        
-
         # terminal condition: out  of bounds (joint pos or vel)
         if not np.logical_and(obs[0]<=1, obs[0]>=0):
-            print('Died due to exceeding joint limits!')
+            print_warning('Died due to exceeding joint limits!')
             return obs, _REWARD['weird_joint_pos'], True, {'sim_timesteps':self._sim_timesteps}
+
+        # terminal condition: max simulation steps reached
+        if not self._sim_timesteps < self._max_sim_timesteps:
+            #if distance <= np.deg2rad(5):
+            #    return obs, reward, True, {'sim_timesteps':self._sim_timesteps}
+            #else:
+            return obs, _REWARD['pace_keeper'], True, {'sim_timesteps':self._sim_timesteps}
+        
+        # If first goal not achieved before half of max sim time, end simulation and give negative reward
+        #if self._sim_timesteps%(self._max_sim_timesteps/4) ==0 and self.first_time:
+        #    print(f'Did not achieve goal fast enough. t = {self._sim_timesteps}')
+        #    return obs, _REWARD['pace_keeper'], True, {'sim_timesteps':self._sim_timesteps}
         
         # all fine
         return obs, reward, False, {'sim_timesteps':self._sim_timesteps}
