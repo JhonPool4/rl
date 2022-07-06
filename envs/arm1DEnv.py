@@ -27,17 +27,15 @@ _USER_INSTANCE_PARAM=['radius','mass','torque']
 _GOALS ={'state':True, 'upper':np.deg2rad(140), 'lower':np.deg2rad(10)}
 
 _MAX_LIST = {"r_elbow":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)},
-            "user_instance":{'radius':0.35, 'mass':5, 'torque':51.5},
+            "user_instance":{'radius':0.35, 'mass':5.05, 'torque':51.5},
             "TRIlong": {"act":1},\
-            #"TRIlat": {"act":1},\
-            #"TRImed": {"act":1},\
             "BIClong": {"act":1},
             #"BICshort": {"act":1},
             #"BRA": {"act":1},
             "goal": {"angle":_GOALS['upper']}}
 
 _MIN_LIST = {"r_elbow":{'pos':np.deg2rad(0), 'vel': np.deg2rad(-180)},
-            "user_instance":{'radius':0.25, 'mass':4, 'torque':0},
+            "user_instance":{'radius':0.25, 'mass':4.95, 'torque':0},
             "TRIlong": {"act":0},\
             #"TRIlat": {"act":0},\
             #"TRImed": {"act":0},\
@@ -49,6 +47,7 @@ _MIN_LIST = {"r_elbow":{'pos':np.deg2rad(0), 'vel': np.deg2rad(-180)},
 _MUSCLE_LIST = ["TRIlong", "BIClong"]#["TRIlong", "TRIlat", "TRImed", \
                                         #"BIClong", "BICshort", "BRA"]                
 _INIT_POS = {'r_shoulder':0, 'r_elbow':np.deg2rad(10)}
+_INIT_FRAME = {'x':-0.013, 'y':0.51} 
 _REWARD = {'nan':-5, 'weird_joint_pos':-2,'pace_keeper':-2, 'goal_achieved':5}     
 
 
@@ -60,6 +59,7 @@ class Arm1DEnv(object):
                 visualize=False,
                 show_act_plot=False,
                 fixed_init=False,
+                fixed_target=False,
                 with_fes = False):
         # simulation parameters
         self._int_acc = integrator_accuracy
@@ -71,7 +71,8 @@ class Arm1DEnv(object):
         self.with_fes = with_fes # same activation for all biceps and all triceps muscles
 
         # RL environemnt parameters
-        self._fixed_init = fixed_init    
+        self._fixed_init = fixed_init   
+        self._fixed_target = fixed_target 
         self._pos_des = None # desired wrist position
         self._initial_condition=None # initial joint configuration   
 
@@ -89,27 +90,53 @@ class Arm1DEnv(object):
         # add bullet to model (extra mass)
         # Body: https://simtk.org/api_docs/opensim/api_docs/classOpenSim_1_1Body.html
         # humerus link
-        target_object = osim.Body("target_object", # name
-                                5, # mass [kg]
-                                osim.Vec3(0), # center of mass
-                                osim.Inertia(1,1,1,0,0,0)) # inertia's moment [Ixx Iyy Izz Ixy Ixz Iyz]
+        _object = osim.Body("object", # name
+                            5, # mass [kg]
+                            osim.Vec3(0), # center of mass
+                            osim.Inertia(1,1,1,0,0,0)) # inertia's moment [Ixx Iyy Izz Ixy Ixz Iyz]
         # add display geometry
         _geom = osim.Ellipsoid(0.025,0.025,0.025)
         _geom.setColor(osim.Orange)
-        target_object.attachGeometry(_geom)      
+        _object.attachGeometry(_geom)      
                                   
         # PlanarJoint: https://simtk.org/api_docs/opensim/api_docs/classOpenSim_1_1PlanarJoint.html
-        self.object_joint = osim.PlanarJoint("object_joint", # name
+        self._object_joint = osim.PlanarJoint("object_joint", # name
                                 self._model.getBodySet().get("r_ulna_radius_hand"), # parent frame
                                 osim.Vec3(0,0,0), # location
                                 osim.Vec3(0,0,0), # rotation
-                                target_object, # child frame
+                                _object, # child frame
                                 osim.Vec3(0,0,0), # location
                                 osim.Vec3(0,0,0)) # rotation           
 
         # add goal body and joint to model
-        self._model.addBody(target_object)
-        self._model.addJoint(self.object_joint)
+        self._model.addBody(_object)
+        self._model.addJoint(self._object_joint)
+
+        if self._visualize:
+            # add bullet to model (extra mass)
+            # Body: https://simtk.org/api_docs/opensim/api_docs/classOpenSim_1_1Body.html
+            # humerus link
+            _target_bullet = osim.Body("target_bullet", # name
+                                0.0001, # mass [kg]
+                                osim.Vec3(0), # center of mass
+                                osim.Inertia(1,1,1,0,0,0)) # inertia's moment [Ixx Iyy Izz Ixy Ixz Iyz]
+            # add display geometry
+            _geom2 = osim.Ellipsoid(0.025,0.025,0.025)
+            _geom2.setColor(osim.Green)
+            _target_bullet.attachGeometry(_geom2)      
+                                    
+            # PlanarJoint: https://simtk.org/api_docs/opensim/api_docs/classOpenSim_1_1PlanarJoint.html
+            self._target_joint = osim.PlanarJoint("target_joint", # name
+                                    self._model.getGround(), # parent frame
+                                    osim.Vec3(0,0,0), # location
+                                    osim.Vec3(0,0,0), # rotation
+                                    _target_bullet, # child frame
+                                    osim.Vec3(0,0,0), # location
+                                    osim.Vec3(0,0,-0.25)) # rotation           
+
+            # add goal body and joint to model
+            self._model.addBody(_target_bullet)
+            self._model.addJoint(self._target_joint)            
                 
         # get handles for model parameters
         self._muscles = self._model.getMuscles() # get muscle
@@ -161,31 +188,32 @@ class Arm1DEnv(object):
                                         high=np.ones((self._n_actions,), dtype=np.float32), \
                                         shape=(self._n_actions,))       
                                         
-        self.first_time = True
+        #self.first_time = True
 
 
     def get_user_parameters(self):
         #init_values = [uniform(_MIN_LIST['user_instance']['radius'], _MAX_LIST['user_instance']['radius']),
         #               uniform(_MIN_LIST['user_instance']['mass'], _MAX_LIST['user_instance']['mass'])]
-        init_values = [uniform(_MIN_LIST['user_instance']['radius'], _MAX_LIST['user_instance']['radius']),
-                       5]
+        init_values = [uniform(_MIN_LIST['user_instance']['radius'], _MAX_LIST['user_instance']['radius']), 5]
 
         return dict(zip(['radius', 'mass'], init_values))        
         
     def get_observations(self):
         # compute forces: muscles
         self._model.realizeAcceleration(self._state)
-        # bullet
-        # - desired pose: x  y
-        # marker elbow
-        # - pos: x, y
-        # - vel: x, y
-        # marker wrist
-        # - pos: x, y
-        # - vel: x, y        
+        # elbow 
+        # - angular position
+        # - angular velocity
+        # user parameters
+        # - radius
+        # - mass 
+        # - torque
         # muscles
         # - tri
-        # - bi
+        # - bi        
+        # desired
+        # - angular position
+
         # observation list
         obs = []
 
@@ -210,10 +238,10 @@ class Arm1DEnv(object):
     def normalize_observations(self, obs):    
         return (obs-self.observation_space.low)/(self.observation_space.high-self.observation_space.low)
 
-    def initial_joint_configuration(self):
+    def get_initial_joint_configuration(self):
         if not self._fixed_init:
-            init_pos =  [uniform(_MIN_LIST['r_elbow']['pos']+np.deg2rad(10), _MAX_LIST['r_elbow']['pos']-np.deg2rad(10))]
-            return dict(zip(['r_elbow'], init_pos))
+            init_pos =  [0, uniform(_MIN_LIST['r_elbow']['pos']+np.deg2rad(10), _MAX_LIST['r_elbow']['pos']-np.deg2rad(10))]
+            return dict(zip(['r_shoulder','r_elbow'], init_pos))
         else:
             return _INIT_POS
 
@@ -253,7 +281,7 @@ class Arm1DEnv(object):
         self._manager.initialize(self._state)
 
 
-    def reset_model(self, init_pos=None, bullet_pos=None):
+    def reset_model(self, init_pos=None, user_parameters=None):
         # set initial position
         if init_pos is not None:
             for joint_name in ['r_elbow']:
@@ -265,7 +293,6 @@ class Arm1DEnv(object):
 
         #self._bodies.get("target_object").set_mass(100)
 
-        
         # fixed shoulder
         self._joints.get("r_shoulder").upd_coordinates(0).setDefaultLocked(True)
         
@@ -274,13 +301,22 @@ class Arm1DEnv(object):
 
         #_joints = self._model.getJointSet() # get joints
         #goal_joint = self._model.getJointSet().get("goal_joint")
-        self.object_joint.get_coordinates(0).setValue(self._state, 0, False)
-        self.object_joint.get_coordinates(0).setLocked(self._state, True)
-        self.object_joint.get_coordinates(1).setValue(self._state, 0, False)
-        self.object_joint.get_coordinates(1).setLocked(self._state, True)
-        self.object_joint.get_coordinates(2).setLocked(self._state, False)
-        self.object_joint.get_coordinates(2).setValue(self._state, -bullet_pos['radius'], False)
-        self.object_joint.get_coordinates(2).setLocked(self._state, True)
+        self._object_joint.get_coordinates(0).setValue(self._state, 0, False)
+        self._object_joint.get_coordinates(0).setLocked(self._state, True)
+        self._object_joint.get_coordinates(1).setValue(self._state, 0, False)
+        self._object_joint.get_coordinates(1).setLocked(self._state, True)
+        self._object_joint.get_coordinates(2).setLocked(self._state, False)
+        self._object_joint.get_coordinates(2).setValue(self._state, -user_parameters['radius'], False)
+        self._object_joint.get_coordinates(2).setLocked(self._state, True)
+
+        if self._visualize:
+            self._target_joint.get_coordinates(0).setValue(self._state, 0, False)
+            self._target_joint.get_coordinates(0).setLocked(self._state, True)
+            self._target_joint.get_coordinates(1).setValue(self._state, _INIT_FRAME['x']+0.24*np.sin(self.goal_angle), False)
+            self._target_joint.get_coordinates(1).setLocked(self._state, True)
+            self._target_joint.get_coordinates(2).setLocked(self._state, False)
+            self._target_joint.get_coordinates(2).setValue(self._state, _INIT_FRAME['y']-0.24*np.cos(self.goal_angle), False)
+            self._target_joint.get_coordinates(2).setLocked(self._state, True)            
 
         # compute length of fibers based on the state (important!)
         self._model.equilibrateMuscles(self._state)
@@ -290,53 +326,34 @@ class Arm1DEnv(object):
         # forward dynamics manager
         self.reset_manager()
 
-    def get_goal_angle(self,metric):
-        reward = 0
-        if self._sim_timesteps % (self._max_sim_timesteps/4) ==0 and self._sim_timesteps != 0 and not self.first_time:
-            _GOALS['state']= not _GOALS['state']
-            print(f'new goal... changed at t= {self._sim_timesteps}')
-            reward = _REWARD['goal_achieved'] 
-            self.first_time = True
-        elif abs(metric)<np.deg2rad(5) and self.first_time:
-            print(f'metric: {np.rad2deg(metric)}, goal angle: {np.rad2deg(self.goal_angle)}')
-            self.first_time = False
-            print(f"Another goal achieved in {self._sim_timesteps/100} seconds!")
-        #if self._sim_timesteps % (self._max_sim_timesteps/4) ==0 and _GOALS['state']:
-         #   value = _GOALS['upper']
-          #  print(f'new goal is {value} changed at t= {self._sim_timesteps}')
-        #else:
-         #   value = np.rad2deg(_GOALS['lower'])
-          #  print(f'new goal is {value} changed at t= {self._sim_timesteps}')
-
-        return reward, _GOALS['upper'] if _GOALS['state'] else  _GOALS['lower']
-
-
-
-
+    def get_goal_angle(self):
+        if not self._fixed_target:
+            return  uniform(_MIN_LIST['goal']['angle'],_MAX_LIST['goal']['angle'])
+        else:
+            return _GOALS['upper']         
+            
     def reset(self, verbose=False):
-        self.first_time = True
-        _GOALS['state'] = True
-       
+        #self.first_time = True
+        #_GOALS['state'] = True
+
+        # compute goal angle
+        self.goal_angle = self.get_goal_angle()
 
         # compute intitial joint configuration
-        init_joint_pos = self.initial_joint_configuration()
+        init_joint_pos = self.get_initial_joint_configuration()
 
         # compute wrist position
         self.user_parameters = self.get_user_parameters()
-
         
         # reset model variables
         self.reset_model(init_pos=init_joint_pos, 
-                        bullet_pos=self.user_parameters)
-
-        _, self.goal_angle = self.get_goal_angle(metric=100)
-        #print(f'goal angle: {self.goal_angle}')
+                        user_parameters=self.user_parameters)
 
         # get observations
         obs, obs_dict = self.get_observations()
         if verbose:
             print(f"radius: {self.user_parameters['radius']:.3f}")
-            #print(f"goal pos: {obs_dict['pos_des_x']:.3f}, {obs_dict['pos_des_y']:.3f}")
+            print(f"goal pos: {obs_dict['goal_angle']:.3f}")
             #print(f"shoulder pos: {obs_dict['r_acromion_x']:.3f}, {obs_dict['r_acromion_y']:.3f}")
             #print(f"elbow pos: {obs_dict['r_humerus_epicondyle_x']:.3f}, {obs_dict['r_humerus_epicondyle_y']:.3f}")
             #print(f"wrist pos: {obs_dict['r_radius_styloid_x']:.3f}, {obs_dict['r_radius_styloid_y']:.3f}")
@@ -348,7 +365,6 @@ class Arm1DEnv(object):
         # get observations and normalize
         
         obs = self.normalize_observations(obs)
-
         
         return obs
 
@@ -394,14 +410,14 @@ class Arm1DEnv(object):
         reward -= 0.002*(obs_dict['r_elbow_vel'])**2 # punishment for high velocity
 
         # If first goal not achieved before half of max sim time, end simulation and give negative reward
-        if self._sim_timesteps%(self._max_sim_timesteps/4) ==0 and self.first_time:
-            print(f'Did not achieve goal fast enough. t = {self._sim_timesteps}')
-            return obs, _REWARD['pace_keeper'], True, {'sim_timesteps':self._sim_timesteps}
+        #if self._sim_timesteps%(self._max_sim_timesteps/4) ==0 and self.first_time:
+        #    print(f'Did not achieve goal fast enough. t = {self._sim_timesteps}')
+        #    return obs, _REWARD['pace_keeper'], True, {'sim_timesteps':self._sim_timesteps}
 
 
         # goal condition
-        goal_reward, self.goal_angle = self.get_goal_angle(metric=distance)
-        reward += goal_reward
+        #goal_reward, self.goal_angle = self.get_goal_angle(metric=distance)
+        #reward += goal_reward
         
 
         # terminal condition: nan observation
@@ -418,7 +434,6 @@ class Arm1DEnv(object):
         
 
         # terminal condition: out  of bounds (joint pos or vel)
-
         if not np.logical_and(obs[0]<=1, obs[0]>=0):
             print('Died due to exceeding joint limits!')
             return obs, _REWARD['weird_joint_pos'], True, {'sim_timesteps':self._sim_timesteps}
