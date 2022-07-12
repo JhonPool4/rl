@@ -6,6 +6,7 @@ from rl_utils import print_warning
 from rl_utils.plotter import Plotter
 from random import uniform
 from copy import copy
+import random
 
 """
 p_shouler = [ -0.013; 0.840];
@@ -326,18 +327,21 @@ class Arm1DEnv(object):
         # forward dynamics manager
         self.reset_manager()
 
-    def get_goal_angle(self):
+    def get_goal_angle(self,current_epoch):
         if not self._fixed_target:
-            return  uniform(_MIN_LIST['goal']['angle'],_MAX_LIST['goal']['angle'])
+            if current_epoch%10 == 0:
+                return random.choice([_MIN_LIST['goal']['angle'],_MAX_LIST['goal']['angle']])
+            else:
+                return  uniform(_MIN_LIST['goal']['angle'],_MAX_LIST['goal']['angle'])
         else:
             return _GOALS['upper']         
             
-    def reset(self, verbose=False):
+    def reset(self, current_epoch,verbose=False):
         #self.first_time = True
         #_GOALS['state'] = True
 
         # compute goal angle
-        self.goal_angle = self.get_goal_angle()
+        self.goal_angle = self.get_goal_angle(current_epoch)
 
         # compute intitial joint configuration
         init_joint_pos = self.get_initial_joint_configuration()
@@ -350,15 +354,15 @@ class Arm1DEnv(object):
                         user_parameters=self.user_parameters)
 
         # get observations
-        obs, obs_dict = self.get_observations()
+        obs, self.obs_dict = self.get_observations()
         if verbose:
             print(f"="*20)
             print(f"radius: {self.user_parameters['radius']:.3f}")
-            print(f"goal pos: {np.rad2deg(obs_dict['goal_angle']):.3f}")
-            print(f"elbow pos: {np.rad2deg(obs_dict['r_elbow_pos']):.3f}")
-            #print(f"shoulder pos: {obs_dict['r_acromion_x']:.3f}, {obs_dict['r_acromion_y']:.3f}")
-            #print(f"elbow pos: {obs_dict['r_humerus_epicondyle_x']:.3f}, {obs_dict['r_humerus_epicondyle_y']:.3f}")
-            #print(f"wrist pos: {obs_dict['r_radius_styloid_x']:.3f}, {obs_dict['r_radius_styloid_y']:.3f}")
+            print(f"goal pos: {np.rad2deg(self.obs_dict['goal_angle']):.3f}")
+            print(f"elbow pos: {np.rad2deg(self.obs_dict['r_elbow_pos']):.3f}")
+            #print(f"shoulder pos: {self.obs_dict['r_acromion_x']:.3f}, {self.obs_dict['r_acromion_y']:.3f}")
+            #print(f"elbow pos: {self.obs_dict['r_humerus_epicondyle_x']:.3f}, {self.obs_dict['r_humerus_epicondyle_y']:.3f}")
+            #print(f"wrist pos: {self.obs_dict['r_radius_styloid_x']:.3f}, {self.obs_dict['r_radius_styloid_y']:.3f}")
             
         # muscle's activation
         if self._visualize and self._show_act_plot:
@@ -400,16 +404,16 @@ class Arm1DEnv(object):
         self.step_model(action=action)
         
         # get environemnt observations
-        obs, obs_dict = self.get_observations()
+        obs, self.obs_dict = self.get_observations()
         obs=self.normalize_observations(obs)      
 
         # compute distance from wrist to target point
-        #print(f"goal_angle = {obs_dict['goal_angle']}")
-        distance = obs_dict['goal_angle']-obs_dict['r_elbow_pos']
+        #print(f"goal_angle = {self.obs_dict['goal_angle']}")
+        distance = self.obs_dict['goal_angle']-self.obs_dict['r_elbow_pos']
         # reward system
-        reward = self.gaussian_reward(metric=distance, max_error=np.deg2rad(140)) # reward to achieve desired position 
-        reward -= 0.05*sum(action) # punishment for inefficient motion
-        reward -= 0.03*(obs_dict['r_elbow_vel'])**2 # punishment for high velocity
+        reward = self.gaussian_reward(metric=distance, max_error=np.deg2rad(20)) # reward to achieve desired position 
+        reward -= 0.001*sum(action) # punishment for inefficient motion
+        reward -= 0.001*(self.obs_dict['r_elbow_vel'])**2 # punishment for high velocity
 
 
 
