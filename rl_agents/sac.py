@@ -7,6 +7,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 from copy import copy
 import os
+import numpy as np
 
 class SAC():
     def __init__(self, 
@@ -63,8 +64,8 @@ class SAC():
 
         #params for modifying the lr during training
         
-        self.scheduler_pi =torch.optim.lr_scheduler.ReduceLROnPlateau(self.pi_net.optimizer, mode='min', factor=0.9, patience=100, threshold=.1, threshold_mode='abs', cooldown=100, min_lr=1e-4, eps=1e-08, verbose=False)
-        self.scheduler_Q = torch.optim.lr_scheduler.ReduceLROnPlateau(self.q_predict.optimizer, mode='min', factor=0.9, patience=100, threshold=.1, threshold_mode='abs', cooldown=100, min_lr=1e-4, eps=1e-08, verbose=False)
+        self.scheduler_pi =torch.optim.lr_scheduler.ReduceLROnPlateau(self.pi_net.optimizer, mode='max', factor=0.5, patience=100, threshold=10, threshold_mode='abs', cooldown=50, min_lr=1e-4, verbose=True)
+        self.scheduler_Q = torch.optim.lr_scheduler.ReduceLROnPlateau(self.q_predict.optimizer, mode='max', factor=0.5, patience=100, threshold=10, threshold_mode='abs', cooldown=50, min_lr=1e-4, verbose=True)
 
     def save_agent_parameters(self, save_path, epoch):
         new_model_save_path = os.path.join(save_path,'agent_parameters', str(epoch))
@@ -167,7 +168,7 @@ class SAC():
             
         for epoch in range(1,n_epochs+1):
             # reset environment
-            obs, reward, done = self.env.reset(verbose=verbose), 0, False
+            obs, reward, done = self.env.reset(current_epoch=epoch,verbose=verbose), 0, False
             score = 0
             
             
@@ -195,9 +196,10 @@ class SAC():
                     self.update_target_networks(tau=0.05) 
                     #self.change_all_nn_lr(epoch+self.logger.last_epoch)
                 
-            if self.mem_buffer.allow_sample:
-                self.scheduler_Q.step(self.logger.data['q_loss'][-1])
-                self.scheduler_pi.step(self.logger.data['pi_loss'][-1])
+            if self.mem_buffer.allow_sample and len(self.logger.data['score'])>10:
+                last_avg_score = sum(self.logger.data['score'][-10:-1])/len(self.logger.data['score'][-10:-1])
+                self.scheduler_Q.step(last_avg_score)
+                self.scheduler_pi.step(last_avg_score)
                 
             # plot epoch avg loss to tensorboard server
             if plot_tensorboard and len(self.logger.data['pi_loss'])>0:
@@ -210,7 +212,8 @@ class SAC():
                     writer.add_scalar('Q_predict_params/'+ name, param.data.mean(), epoch+self.logger.last_epoch)
                 writer.add_scalar('Learing Rate Pi', self.pi_net.optimizer.param_groups[0]['lr'], epoch+self.logger.last_epoch)
                 writer.add_scalar('Learing Rate Q', self.q_predict.optimizer.param_groups[0]['lr'], epoch+self.logger.last_epoch)
-                
+            print(f"Final elbow angle = {np.rad2deg(self.env.obs_dict['r_elbow_pos'])}")
+
 
      
             # just to print data
@@ -232,7 +235,7 @@ class SAC():
         print(f"============================")        
         for attemp in range(n_attemps):
             # reset environment
-            obs, reward, done = self.env.reset(verbose=verbose), 0, False
+            obs, reward, done = self.env.reset(current_epoch=attemp,verbose=verbose), 0, False
             score = 0                
 
             while not done:
@@ -245,12 +248,13 @@ class SAC():
                     act, _ = self.pi_net.predict_action(torch.tensor(obs, dtype=torch.float32)) 
                 # interact with the environment
                 new_obs, reward, done, info = self.env.step(act.detach().numpy())
+                
                 #render
                 #self.env.render()
                 # update observation
                 obs = copy(new_obs)
                 # just to print
                 score +=reward        
-            
+            print(f"Final elbow angle = {np.rad2deg(self.env.obs_dict['r_elbow_pos'])}")
             print(f"attemp: {attemp+1}, score: {score:.2f}, sim_time: {info['sim_timesteps']}")
             print(f"")
