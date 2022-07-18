@@ -1,3 +1,6 @@
+// documentation
+// atmega3280: https://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-7810-Automotive-Microcontrollers-ATmega328P_Datasheet.pdf
+// THI40N: https://files.pepperl-fuchs.com/webcat/navi/productInfo/pds/t36797_eng.pdf?v=20220718111409
 
 /************************
     enconder variables
