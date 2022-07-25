@@ -3,7 +3,7 @@ import numpy as np
 import opensim as osim
 from gym import spaces
 from rl_utils import print_warning
-from rl_utils.plotter import Plotter
+from utils.plotter import Plotter
 from random import uniform
 from copy import copy
 import random
@@ -84,8 +84,7 @@ class Arm1DEnv_TorqueOnly(object):
         self._model.setUseVisualizer(self._visualize)  
         # animation of muscle's activation
         if self._visualize and self._show_act_plot:
-            self._mus_plot = Plotter(nrows=2, ncols=1,max_simtime=sim_time,headers=_MUSCLE_LIST) 
-            self._angle_plot = Plotter(nrows=1, ncols=1,max_simtime=sim_time,headers=['distance'])               
+            self._plot = Plotter(nrows=2, ncols=2, max_simtime=sim_time,headers=['triceps', 'biceps', 'distance', 'reward'])              
         
 
         # add bullet to model (extra mass)
@@ -132,8 +131,8 @@ class Arm1DEnv_TorqueOnly(object):
                                     osim.Vec3(0,0,0), # location
                                     osim.Vec3(0,0,0), # rotation
                                     _target_bullet, # child frame
-                                    osim.Vec3(0,0,0), # location
-                                    osim.Vec3(0,0,-0.25)) # rotation           
+                                    osim.Vec3(0,0.005,-0.16), # location
+                                    osim.Vec3(0,0,0)) # rotation         
 
             # add goal body and joint to model
             self._model.addBody(_target_bullet)
@@ -178,13 +177,13 @@ class Arm1DEnv_TorqueOnly(object):
         n_obs = len(self.obs_names)
 
         high = [var for lvl1 in _MAX_LIST.values() for var in lvl1.values()] 
-        high.pop(2)
-        high.pop(2)
+        high.pop(2) # to remove radius
+        high.pop(2) # to remove mass
         high = np.array(high, dtype=np.float32)
 
         low = [var for lvl1 in _MIN_LIST.values() for var in lvl1.values()] 
-        low.pop(2)
-        low.pop(2)
+        low.pop(2) # to remove radius
+        low.pop(2) # to remove mass
         low = np.array(low, dtype=np.float32)  
 
         self.observation_space = spaces.Box(low=low, \
@@ -234,7 +233,7 @@ class Arm1DEnv_TorqueOnly(object):
         # user parameters
         self.user_parameters['torque'] = self.user_parameters['radius']*np.sin(obs[0])*self.user_parameters['mass']*9.81
         for name in _USER_INSTANCE_PARAM:
-            if name == 'torque':
+            if name == 'torque': # just add torque
                 obs.append(self.user_parameters[name])
 
         # muscle activation
@@ -252,7 +251,7 @@ class Arm1DEnv_TorqueOnly(object):
     def get_initial_joint_configuration(self,current_epoch):
         if not self._fixed_init:
             if current_epoch%3==0:
-                init_pos = [0,np.deg2rad(10)]
+                init_pos = [0, np.deg2rad(10)]
                 return dict(zip(['r_shoulder','r_elbow'], init_pos))
             else:
                 init_pos =  [0, random.choice([uniform(self.goal_angle+np.deg2rad(10),self.goal_angle+np.deg2rad(20)), uniform(self.goal_angle-np.deg2rad(10),self.goal_angle-np.deg2rad(20))])]
@@ -299,6 +298,18 @@ class Arm1DEnv_TorqueOnly(object):
         self._manager.setIntegratorAccuracy(self._int_acc)
         self._manager.initialize(self._state)
 
+    def update_bullet_position(self, user_parameters, goal_angle):
+        self._target_joint.get_coordinates(0).setLocked(self._state, False)
+        self._target_joint.get_coordinates(0).setValue(self._state, 0, False)
+        self._target_joint.get_coordinates(0).setLocked(self._state, True)
+
+        self._target_joint.get_coordinates(1).setLocked(self._state, False)
+        self._target_joint.get_coordinates(1).setValue(self._state, _INIT_FRAME['x']+user_parameters['radius']*np.sin(goal_angle), False)
+        self._target_joint.get_coordinates(1).setLocked(self._state, True)
+        
+        self._target_joint.get_coordinates(2).setLocked(self._state, False)
+        self._target_joint.get_coordinates(2).setValue(self._state, _INIT_FRAME['y']-user_parameters['radius']*np.cos(goal_angle), False)
+        self._target_joint.get_coordinates(2).setLocked(self._state, True)          
 
     def reset_model(self, init_pos=None, user_parameters=None):
         # set initial position
@@ -329,13 +340,8 @@ class Arm1DEnv_TorqueOnly(object):
         self._object_joint.get_coordinates(2).setLocked(self._state, True)
 
         if self._visualize:
-            self._target_joint.get_coordinates(0).setValue(self._state, 0, False)
-            self._target_joint.get_coordinates(0).setLocked(self._state, True)
-            self._target_joint.get_coordinates(1).setValue(self._state, _INIT_FRAME['x']+user_parameters['radius']*np.sin(self.goal_angle), False)
-            self._target_joint.get_coordinates(1).setLocked(self._state, True)
-            self._target_joint.get_coordinates(2).setLocked(self._state, False)
-            self._target_joint.get_coordinates(2).setValue(self._state, _INIT_FRAME['y']-user_parameters['radius']*np.cos(self.goal_angle), False)
-            self._target_joint.get_coordinates(2).setLocked(self._state, True)            
+            # update goal bullet position
+            self.update_bullet_position(user_parameters=user_parameters, goal_angle=self.goal_angle)    
 
         # compute length of fibers based on the state (important!)
         self._model.equilibrateMuscles(self._state)
@@ -441,6 +447,10 @@ class Arm1DEnv_TorqueOnly(object):
         #goal_reward, self.goal_angle = self.get_goal_angle(metric=distance)
         #reward += goal_reward
         
+        if self._visualize and self._show_act_plot:
+            if self._sim_timesteps%10==0:
+                self._plot.add_data(time=self._sim_timesteps*self._step_size, data=np.array([act[0], act[1], np.rad2deg(distance), reward]))
+                self._plot.update_figure()  
 
         # terminal condition: nan observation
         if np.isnan(obs).any(): # check is there are nan values 
