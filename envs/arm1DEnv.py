@@ -260,7 +260,7 @@ class Arm1DEnv(object):
             # get control function of actuator "idx"
             func = osim.Constant.safeDownCast(self._control_functions.get(idx))
             # apply action
-            func.setValue( float(action[idx]) )
+            func.setValue(float(action[idx]) )
 
     def get_sim_timesteps(self):
         return self._sim_timesteps
@@ -329,8 +329,8 @@ class Arm1DEnv(object):
 
     def get_goal_angle(self,current_epoch):
         if not self._fixed_target:
-            if current_epoch%10 == 0:
-                return random.choice([_MIN_LIST['goal']['angle'],_MAX_LIST['goal']['angle']])
+            if current_epoch%5 == 0:
+                return random.choice([_MIN_LIST['goal']['angle'],np.deg2rad(90),_MAX_LIST['goal']['angle']])
             else:
                 return  uniform(_MIN_LIST['goal']['angle'],_MAX_LIST['goal']['angle'])
         else:
@@ -406,7 +406,6 @@ class Arm1DEnv(object):
         # get environemnt observations
         obs, self.obs_dict = self.get_observations()
         obs=self.normalize_observations(obs)      
-
         # compute distance from wrist to target point
         #print(f"goal_angle = {self.obs_dict['goal_angle']}")
         distance = self.obs_dict['goal_angle']-self.obs_dict['r_elbow_pos']
