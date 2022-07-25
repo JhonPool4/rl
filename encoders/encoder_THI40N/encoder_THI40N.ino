@@ -1,5 +1,5 @@
 // documentation
-// atmega3280: https://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-7810-Automotive-Microcontrollers-ATmega328P_Datasheet.pdf
+// atmega328p: https://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-7810-Automotive-Microcontrollers-ATmega328P_Datasheet.pdf
 // THI40N: https://files.pepperl-fuchs.com/webcat/navi/productInfo/pds/t36797_eng.pdf?v=20220718111409
 
 /************************
@@ -15,29 +15,30 @@ uint8_t   global_last_m1a_state;
 uint8_t   global_last_m1b_state;
 
 
-
 /************************
     headers
  ************************/
 void enable_interrupts_pin(uint8_t pin);
 void enconder_init(uint8_t pin_m1a, uint8_t pin_m1b);
 
-
-
-
 void setup()
 {
   enconder_init(pin_m1a, pin_m1b);
-  Serial.begin(115200);
+  Serial.begin(1000000);
 }
 
 void loop() {
-
-  Serial.println(global_counts_m1*360/2048);
-  
+  //*(180.0/1024.0)
+  //Serial.println(global_counts_m1);
+  //delay(100);
 }
 
-
+void serialEvent(){
+  // send data just when recieve 'r'
+  if(Serial.available()>0){
+    if(Serial.read()=='r') Serial.println(global_counts_m1);
+  }
+}
 
 /*******************************
     interrupt service routine
