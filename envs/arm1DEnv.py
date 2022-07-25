@@ -3,7 +3,8 @@ import numpy as np
 import opensim as osim
 from gym import spaces
 from rl_utils import print_warning
-from rl_utils.plotter import Plotter
+from utils import fifth_order_trajectory_generator,fifth_order_pos_trajectory
+from utils.plotter import Plotter
 from random import uniform
 from copy import copy
 import random
@@ -61,15 +62,18 @@ class Arm1DEnv(object):
                 show_act_plot=False,
                 fixed_init=False,
                 fixed_target=False,
-                with_fes = False):
+                with_fes=False,
+                split_trajectory=False):
         # simulation parameters
         self._int_acc = integrator_accuracy
         self._step_size = step_size
         self._show_act_plot = show_act_plot
         self._visualize = visualize
+        self._max_sim_time = sim_time
         self._max_sim_timesteps = sim_time/step_size
         self._sim_timesteps = 0 # current simulation steps 
         self.with_fes = with_fes # same activation for all biceps and all triceps muscles
+        self._split_trajectory = split_trajectory # smooth movement
 
         # RL environemnt parameters
         self._fixed_init = fixed_init   
@@ -84,8 +88,7 @@ class Arm1DEnv(object):
         self._model.setUseVisualizer(self._visualize)  
         # animation of muscle's activation
         if self._visualize and self._show_act_plot:
-            self._mus_plot = Plotter(nrows=2, ncols=1,max_simtime=sim_time,headers=_MUSCLE_LIST) 
-            self._angle_plot = Plotter(nrows=1, ncols=1,max_simtime=sim_time,headers=['distance'])               
+            self._plot = Plotter(nrows=2, ncols=2, max_simtime=sim_time,headers=['triceps', 'biceps', 'distance', 'reward'])              
         
 
         # add bullet to model (extra mass)
@@ -195,7 +198,8 @@ class Arm1DEnv(object):
     def get_user_parameters(self):
         #init_values = [uniform(_MIN_LIST['user_instance']['radius'], _MAX_LIST['user_instance']['radius']),
         #               uniform(_MIN_LIST['user_instance']['mass'], _MAX_LIST['user_instance']['mass'])]
-        init_values = [uniform(_MIN_LIST['user_instance']['radius'], _MAX_LIST['user_instance']['radius']), 5]
+        #init_values = [uniform(_MIN_LIST['user_instance']['radius'], _MAX_LIST['user_instance']['radius']), 5]
+        init_values = [0.28, 5]
 
         return dict(zip(['radius', 'mass'], init_values))        
         
@@ -281,6 +285,21 @@ class Arm1DEnv(object):
         self._manager.setIntegratorAccuracy(self._int_acc)
         self._manager.initialize(self._state)
 
+    def update_bullet_position(self, user_parameters, goal_angle):
+        if self._visualize:
+            self._target_joint.get_coordinates(0).setLocked(self._state, False)
+            self._target_joint.get_coordinates(0).setValue(self._state, 0, False)
+            self._target_joint.get_coordinates(0).setLocked(self._state, True)
+
+            self._target_joint.get_coordinates(1).setLocked(self._state, False)
+            self._target_joint.get_coordinates(1).setValue(self._state, _INIT_FRAME['x']+user_parameters['radius']*np.sin(goal_angle), False)
+            self._target_joint.get_coordinates(1).setLocked(self._state, True)
+            
+            self._target_joint.get_coordinates(2).setLocked(self._state, False)
+            self._target_joint.get_coordinates(2).setValue(self._state, _INIT_FRAME['y']-user_parameters['radius']*np.cos(goal_angle), False)
+            self._target_joint.get_coordinates(2).setLocked(self._state, True)          
+
+
 
     def reset_model(self, init_pos=None, user_parameters=None):
         # set initial position
@@ -311,13 +330,8 @@ class Arm1DEnv(object):
         self._object_joint.get_coordinates(2).setLocked(self._state, True)
 
         if self._visualize:
-            self._target_joint.get_coordinates(0).setValue(self._state, 0, False)
-            self._target_joint.get_coordinates(0).setLocked(self._state, True)
-            self._target_joint.get_coordinates(1).setValue(self._state, _INIT_FRAME['x']+user_parameters['radius']*np.sin(self.goal_angle), False)
-            self._target_joint.get_coordinates(1).setLocked(self._state, True)
-            self._target_joint.get_coordinates(2).setLocked(self._state, False)
-            self._target_joint.get_coordinates(2).setValue(self._state, _INIT_FRAME['y']-user_parameters['radius']*np.cos(self.goal_angle), False)
-            self._target_joint.get_coordinates(2).setLocked(self._state, True)            
+            # update goal bullet position
+            self.update_bullet_position(user_parameters=user_parameters, goal_angle=self.goal_angle)     
 
         # compute length of fibers based on the state (important!)
         self._model.equilibrateMuscles(self._state)
@@ -341,7 +355,7 @@ class Arm1DEnv(object):
         #_GOALS['state'] = True
 
         # compute goal angle
-        self.goal_angle = self.get_goal_angle(current_epoch)
+        self.real_goal_angle = self.get_goal_angle(current_epoch)
 
         # compute intitial joint configuration
         init_joint_pos = self.get_initial_joint_configuration()
@@ -349,16 +363,29 @@ class Arm1DEnv(object):
         # compute wrist position
         self.user_parameters = self.get_user_parameters()
         
+        # compute trajectory coefficients
+        self.traj_coef = fifth_order_trajectory_generator(  x_1=init_joint_pos['r_elbow'], 
+                                                            x_2=self.real_goal_angle, 
+                                                            sim_time=self._max_sim_time)        
+        # compute mini-goal
+        if self._split_trajectory:
+            self.goal_angle = fifth_order_pos_trajectory(a=self.traj_coef, t=0)
+        else:
+            self.goal_angle = copy(self.real_goal_angle)
+
         # reset model variables
         self.reset_model(init_pos=init_joint_pos, 
                         user_parameters=self.user_parameters)
+
+
 
         # get observations
         obs, self.obs_dict = self.get_observations()
         if verbose:
             print(f"="*20)
             print(f"radius: {self.user_parameters['radius']:.3f}")
-            print(f"goal pos: {np.rad2deg(self.obs_dict['goal_angle']):.3f}")
+            print(f"goal pos: {np.rad2deg(self.real_goal_angle):.3f}")
+            print(f"mini-goal pos: {np.rad2deg(self.obs_dict['goal_angle']):.3f}")
             print(f"elbow pos: {np.rad2deg(self.obs_dict['r_elbow_pos']):.3f}")
             #print(f"shoulder pos: {self.obs_dict['r_acromion_x']:.3f}, {self.obs_dict['r_acromion_y']:.3f}")
             #print(f"elbow pos: {self.obs_dict['r_humerus_epicondyle_x']:.3f}, {self.obs_dict['r_humerus_epicondyle_y']:.3f}")
@@ -366,8 +393,7 @@ class Arm1DEnv(object):
             
         # muscle's activation
         if self._visualize and self._show_act_plot:
-            self._mus_plot.reset()
-            self._angle_plot.reset()
+            self._plot.reset()
         # get observations and normalize
         
         obs = self.normalize_observations(obs)
@@ -382,6 +408,14 @@ class Arm1DEnv(object):
 
 
     def step(self, act):
+
+        # update mini-goal
+        if self._split_trajectory and self._sim_timesteps%10==0:
+            self.goal_angle = fifth_order_pos_trajectory(a=self.traj_coef, t=self._sim_timesteps*self._step_size)
+            # update goal bullet position
+            self.update_bullet_position(user_parameters=self.user_parameters, goal_angle=self.goal_angle)              
+            print(f"new_goal: {np.rad2deg(self.obs_dict['goal_angle']):.3f}")
+
         # mean muscle's activation
         #print(f'action: {act}')
         if self.with_fes:
@@ -395,10 +429,8 @@ class Arm1DEnv(object):
         #print(f'biceps= {action[3:5]}')
         #print(f'triceps= {action[0:3]}')
         # muscle's activation
-        if self._visualize and self._show_act_plot:
-            self._mus_plot.add_data(time=self._sim_timesteps*self._step_size, act=action)
-            if self._show_act_plot and self._sim_timesteps%100==0:
-                self._mus_plot.update_figure()       
+        # muscle's activation
+
 
         # apply action
         self.step_model(action=action)
@@ -415,13 +447,14 @@ class Arm1DEnv(object):
         reward -= 0.001*sum(action) # punishment for inefficient motion
         reward -= 0.001*(self.obs_dict['r_elbow_vel'])**2 # punishment for high velocity
 
-
-
-
         # goal condition
         #goal_reward, self.goal_angle = self.get_goal_angle(metric=distance)
         #reward += goal_reward
-        
+        if self._visualize and self._show_act_plot:
+            if self._sim_timesteps%10==0:
+                self._plot.add_data(time=self._sim_timesteps*self._step_size, data=np.array([act[0], act[1], np.rad2deg(distance), reward]))
+                self._plot.update_figure()    
+
 
         # terminal condition: nan observation
         if np.isnan(obs).any(): # check is there are nan values 
