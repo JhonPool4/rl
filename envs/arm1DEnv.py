@@ -135,8 +135,8 @@ class Arm1DEnv(object):
                                     osim.Vec3(0,0,0), # location
                                     osim.Vec3(0,0,0), # rotation
                                     _target_bullet, # child frame
-                                    osim.Vec3(0,0,0), # location
-                                    osim.Vec3(0,0,-0.25)) # rotation           
+                                    osim.Vec3(0,0.005,-0.16), # location
+                                    osim.Vec3(0,0,0)) # rotation           
 
             # add goal body and joint to model
             self._model.addBody(_target_bullet)
@@ -286,18 +286,17 @@ class Arm1DEnv(object):
         self._manager.initialize(self._state)
 
     def update_bullet_position(self, user_parameters, goal_angle):
-        if self._visualize:
-            self._target_joint.get_coordinates(0).setLocked(self._state, False)
-            self._target_joint.get_coordinates(0).setValue(self._state, 0, False)
-            self._target_joint.get_coordinates(0).setLocked(self._state, True)
+        self._target_joint.get_coordinates(0).setLocked(self._state, False)
+        self._target_joint.get_coordinates(0).setValue(self._state, 0, False)
+        self._target_joint.get_coordinates(0).setLocked(self._state, True)
 
-            self._target_joint.get_coordinates(1).setLocked(self._state, False)
-            self._target_joint.get_coordinates(1).setValue(self._state, _INIT_FRAME['x']+user_parameters['radius']*np.sin(goal_angle), False)
-            self._target_joint.get_coordinates(1).setLocked(self._state, True)
-            
-            self._target_joint.get_coordinates(2).setLocked(self._state, False)
-            self._target_joint.get_coordinates(2).setValue(self._state, _INIT_FRAME['y']-user_parameters['radius']*np.cos(goal_angle), False)
-            self._target_joint.get_coordinates(2).setLocked(self._state, True)          
+        self._target_joint.get_coordinates(1).setLocked(self._state, False)
+        self._target_joint.get_coordinates(1).setValue(self._state, _INIT_FRAME['x']+user_parameters['radius']*np.sin(goal_angle), False)
+        self._target_joint.get_coordinates(1).setLocked(self._state, True)
+        
+        self._target_joint.get_coordinates(2).setLocked(self._state, False)
+        self._target_joint.get_coordinates(2).setValue(self._state, _INIT_FRAME['y']-user_parameters['radius']*np.cos(goal_angle), False)
+        self._target_joint.get_coordinates(2).setLocked(self._state, True)          
 
 
 
