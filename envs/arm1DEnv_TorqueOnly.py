@@ -390,8 +390,7 @@ class Arm1DEnv_TorqueOnly(object):
             
         # muscle's activation
         if self._visualize and self._show_act_plot:
-            self._mus_plot.reset()
-            self._angle_plot.reset()
+            self._plot.reset()
         # get observations and normalize
         
         obs = self.normalize_observations(obs)
@@ -418,11 +417,7 @@ class Arm1DEnv_TorqueOnly(object):
             action = copy(act)
         #print(f'biceps= {action[3:5]}')
         #print(f'triceps= {action[0:3]}')
-        # muscle's activation
-        if self._visualize and self._show_act_plot:
-            self._mus_plot.add_data(time=self._sim_timesteps*self._step_size, act=action)
-            if self._show_act_plot and self._sim_timesteps%100==0:
-                self._mus_plot.update_figure()       
+  
 
         # apply action
         self.step_model(action=action)
@@ -440,6 +435,10 @@ class Arm1DEnv_TorqueOnly(object):
         reward -= 0.001*sum(action) # punishment for inefficient motion
         reward -= 0.001*(self.obs_dict['r_elbow_vel'])**2 # punishment for high velocity
 
+        if self._visualize and self._show_act_plot:
+            if self._sim_timesteps%10==0:
+                self._plot.add_data(time=self._sim_timesteps*self._step_size, data=np.array([act[0], act[1], np.rad2deg(distance), reward]))
+                self._plot.update_figure()    
 
 
 
