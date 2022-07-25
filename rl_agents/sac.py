@@ -19,6 +19,7 @@ class SAC():
                 dir_name='./task/agent',
                 save_rate=100,
                 print_rate=10,
+                start_lr = 1e-3,
                 load_model=False,
                 hidden_layers=list()):
         
@@ -47,10 +48,10 @@ class SAC():
 
         # create Q networks: (i) target and (ii) predict
         self.q_target = DoubleQNetwork(self.obs_dim, self.act_dim, hidden_layers)
-        self.q_predict = DoubleQNetwork(self.obs_dim, self.act_dim, hidden_layers,lr=1e-3)
+        self.q_predict = DoubleQNetwork(self.obs_dim, self.act_dim, hidden_layers,lr=start_lr)
 
         # create policy
-        self.pi_net = GaussianPolicyNetwork(self.obs_dim, self.act_dim, env.action_space, hidden_layers,lr=1e-3)
+        self.pi_net = GaussianPolicyNetwork(self.obs_dim, self.act_dim, env.action_space, hidden_layers,lr=start_lr)
 
         # automatic entropy
         self.target_entropy = -torch.prod(torch.Tensor(env.action_space.shape))
@@ -64,8 +65,8 @@ class SAC():
 
         #params for modifying the lr during training
         
-        self.scheduler_pi =torch.optim.lr_scheduler.ReduceLROnPlateau(self.pi_net.optimizer, mode='max', factor=0.5, patience=100, threshold=10, threshold_mode='abs', cooldown=50, min_lr=1e-4, verbose=True)
-        self.scheduler_Q = torch.optim.lr_scheduler.ReduceLROnPlateau(self.q_predict.optimizer, mode='max', factor=0.5, patience=100, threshold=10, threshold_mode='abs', cooldown=50, min_lr=1e-4, verbose=True)
+        self.scheduler_pi =torch.optim.lr_scheduler.ReduceLROnPlateau(self.pi_net.optimizer, mode='max', factor=0.5, patience=500, threshold=10, threshold_mode='abs', cooldown=500, min_lr=1e-4, verbose=True)
+        self.scheduler_Q = torch.optim.lr_scheduler.ReduceLROnPlateau(self.q_predict.optimizer, mode='max', factor=0.5, patience=500, threshold=10, threshold_mode='abs', cooldown=500, min_lr=1e-4, verbose=True)
 
     def save_agent_parameters(self, save_path, epoch):
         new_model_save_path = os.path.join(save_path,'agent_parameters', str(epoch))
@@ -182,7 +183,6 @@ class SAC():
                     act, _ = self.pi_net.predict_action(torch.tensor(obs, dtype=torch.float32)) 
                 # interact with the environment
                 new_obs, reward, done, info = self.env.step(act.detach().numpy())
-
                 # store transition in memory
                 self.mem_buffer.store_transition(obs, act.detach().numpy(), reward, new_obs, done)
                 # update observation
@@ -205,7 +205,10 @@ class SAC():
             if plot_tensorboard and len(self.logger.data['pi_loss'])>0:
                 writer.add_scalar(f'Loss/pi_loss', self.logger.data['pi_loss'][-1], epoch+self.logger.last_epoch)
                 writer.add_scalar(f'Loss/Q_Loss', self.logger.data['q_loss'][-1], epoch+self.logger.last_epoch)
-                writer.add_scalar('Score', score, epoch+self.logger.last_epoch)
+                if len(self.logger.data['score'])<11:
+                    writer.add_scalar('Score', score, epoch+self.logger.last_epoch)
+                else:
+                    writer.add_scalar('Score', last_avg_score, epoch+self.logger.last_epoch)
                 for name, param in self.pi_net.named_parameters():
                     writer.add_scalar('pi_net_params/'+ name, param.data.mean(), epoch+self.logger.last_epoch)
                 for name, param in self.q_predict.named_parameters():
@@ -231,13 +234,13 @@ class SAC():
 
     def test(self, n_attemps, verbose=False,pulse_frequency_steps = None):
         print(f"============================")
-        print(f"\tstaring test")
+        print(f"\tstarting test")
         print(f"============================")        
         for attemp in range(n_attemps):
             # reset environment
             obs, reward, done = self.env.reset(current_epoch=attemp,verbose=verbose), 0, False
             score = 0                
-
+            print(len(obs))
             while not done:
                 # get action
                 if pulse_frequency_steps is not None:
