@@ -435,10 +435,6 @@ class Arm1DEnv_TorqueOnly(object):
         reward -= 0.001*sum(action) # punishment for inefficient motion
         reward -= 0.001*(self.obs_dict['r_elbow_vel'])**2 # punishment for high velocity
 
-        if self._visualize and self._show_act_plot:
-            if self._sim_timesteps%10==0:
-                self._plot.add_data(time=self._sim_timesteps*self._step_size, data=np.array([act[0], act[1], np.rad2deg(distance), reward]))
-                self._plot.update_figure()    
 
 
 
