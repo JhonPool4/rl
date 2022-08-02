@@ -28,7 +28,7 @@ _USER_INSTANCE_PARAM=['radius','mass','torque']
 _GOALS ={'state':True, 'upper':np.deg2rad(140), 'lower':np.deg2rad(10)}
 
 _MAX_LIST = {"r_elbow":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)},
-            "user_instance":{'radius':0.90, 'mass':5.05, 'torque':44.2},
+            "user_instance":{'radius':0.28, 'mass':2.55, 'torque':7.1},
             "TRIlong": {"act":1},\
             "BIClong": {"act":1},
             #"BICshort": {"act":1},
@@ -36,7 +36,7 @@ _MAX_LIST = {"r_elbow":{'pos':np.deg2rad(150), 'vel': np.deg2rad(180)},
             "goal": {"angle":np.deg2rad(150)}}
 
 _MIN_LIST = {"r_elbow":{'pos':np.deg2rad(0), 'vel': np.deg2rad(-180)},
-            "user_instance":{'radius':0, 'mass':4.95, 'torque':0},
+            "user_instance":{'radius':0.22, 'mass':2.45, 'torque':0},
             "TRIlong": {"act":0},\
             #"TRIlat": {"act":0},\
             #"TRImed": {"act":0},\
@@ -201,10 +201,7 @@ class Arm1DEnv_TorqueOnly(object):
     def get_user_parameters(self,current_epoch):
         #init_values = [uniform(_MIN_LIST['user_instance']['radius'], _MAX_LIST['user_instance']['radius']),
         #               uniform(_MIN_LIST['user_instance']['mass'], _MAX_LIST['user_instance']['mass'])]
-        if current_epoch%2 == 0:
-            init_values = [uniform(_MAX_LIST['user_instance']['radius']-.15, _MAX_LIST['user_instance']['radius']), 5]
-        else:
-            init_values = [uniform(_MIN_LIST['user_instance']['radius'], _MAX_LIST['user_instance']['radius']), 5]
+        init_values = [uniform(_MIN_LIST['user_instance']['radius'], _MAX_LIST['user_instance']['radius']), 2.55]
         
         #init_values = [.9,5]
         return dict(zip(['radius', 'mass'], init_values))        
@@ -251,16 +248,12 @@ class Arm1DEnv_TorqueOnly(object):
 
     def get_initial_joint_configuration(self,current_epoch):
         if not self._fixed_init:
-            if current_epoch%3==0:
-                init_pos = [0,np.deg2rad(10)]
-                return dict(zip(['r_shoulder','r_elbow'], init_pos))
-            else:
-                init_pos =  [0, random.choice([uniform(self.goal_angle+np.deg2rad(10),self.goal_angle+np.deg2rad(20)), uniform(self.goal_angle-np.deg2rad(10),self.goal_angle-np.deg2rad(20))])]
-                if init_pos[1] > _MAX_LIST['r_elbow']['pos']:
-                    init_pos[1] = _MAX_LIST['r_elbow']['pos'] - np.deg2rad(10)
-                elif init_pos[1] < _MIN_LIST['r_elbow']['pos']:
-                    init_pos[1] = _MIN_LIST['r_elbow']['pos'] + np.deg2rad(10)
-                return dict(zip(['r_shoulder','r_elbow'], init_pos))
+            init_pos =  [0, random.choice([uniform(self.goal_angle+np.deg2rad(10),self.goal_angle+np.deg2rad(20)), uniform(self.goal_angle-np.deg2rad(10),self.goal_angle-np.deg2rad(20))])]
+            if init_pos[1] > _MAX_LIST['r_elbow']['pos']:
+                init_pos[1] = _MAX_LIST['r_elbow']['pos'] - np.deg2rad(10)
+            elif init_pos[1] < _MIN_LIST['r_elbow']['pos']:
+                init_pos[1] = _MIN_LIST['r_elbow']['pos'] + np.deg2rad(10)
+            return dict(zip(['r_shoulder','r_elbow'], init_pos))
         else:
             return _INIT_POS
 
@@ -347,10 +340,7 @@ class Arm1DEnv_TorqueOnly(object):
 
     def get_goal_angle(self,current_epoch):
         if not self._fixed_target:
-            if current_epoch%5 == 0:
-                return random.choice([_MIN_LIST['goal']['angle'],np.deg2rad(90),_MAX_LIST['goal']['angle']])
-            else:
-                return  uniform(_MIN_LIST['goal']['angle'],_MAX_LIST['goal']['angle'])
+            return  uniform(_MIN_LIST['goal']['angle'],_MAX_LIST['goal']['angle'])
         else:
             return _GOALS['upper']         
             
