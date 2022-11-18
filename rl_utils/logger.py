@@ -1,19 +1,24 @@
-from lib2to3.pgen2.literals import simple_escapes
 import os
 import pandas as pd
-import matplotlib.pyplot as plt
 from .color_print import print_info
 import csv
+from torch.utils.tensorboard import SummaryWriter
 
 class Logger():
-    def __init__(self, column_names=list(),save_path='task/agent', print_rate=100, save_rate=100, resume_training=False):
+    def __init__(self, 
+                        save_path='./task/agent', 
+                        save_rate=100, 
+                        resume_training=False,
+                        plot_tensorboard=False):
         self.best_score = -1000
-        self.print_rate = print_rate
         self.save_rate = save_rate
-               
+        self.plot_tensorboard = plot_tensorboard
         # create data frame structure
         self.data_path = os.path.join(save_path, 'training_data')
-        self.column_names=column_names#['epoch','score', 'pi_loss', 'q_loss', 'sim_time']
+        self.column_names=['epoch','sim_timesteps','score', 'pi_loss', 'q_loss']
+
+        if self.plot_tensorboard:
+            self.tb_writer = SummaryWriter() # create a tensorboard plot        
 
         # create new file
         if not resume_training:
@@ -26,8 +31,9 @@ class Logger():
                 csv_writer.writerow(self.column_names)
             print_info(f"creating new training data file")
         else:
+            # load the table to get the last epoch, then delete it
             tmp_df = pd.read_csv(self.data_path)
-            self.last_epoch = int(tmp_df['epoch'].iloc[-1])##self.print_rate*len(tmp_df)
+            self.last_epoch = int(tmp_df['epoch'].iloc[-1])
             del tmp_df
             print_info(f"loading training data from {self.data_path}")
             print_info(f"last epoch: {self.last_epoch}")
@@ -46,57 +52,47 @@ class Logger():
         # close file
         self.f.close()
 
-    def print_data_buf(self, epoch, verbose=False):
-
-        if len(self.data['pi_loss'])>0:
+    def end_episode(self, epoch):
+        # number of elements
+        n_epochs = len(self.data['score'])
+        # save data
+        if n_epochs>self.save_rate:
+            n_timesteps = sum(self.data['sim_timesteps'])         
+            # compute average values on one epoch
+            mean_score = (sum(self.data['score']) / n_epochs).item()
+            mean_timesteps = int(n_timesteps / n_epochs)
+            mean_pi_loss = (sum(self.data['pi_loss'])/n_timesteps ).item()
+            mean_q_loss = (sum(self.data['q_loss']) /n_timesteps ).item()
             # save training data
             self.csv_writer.writerow( [ self.last_epoch+epoch, \
-                                        self.data['score'][-1], \
-                                        self.data['pi_loss'][-1].item(), \
-                                        self.data['q_loss'][-1].item(), \
-                                        self.data['sim_timesteps'][-1]])
+                                        mean_timesteps, \
+                                        mean_score, \
+                                        mean_pi_loss, \
+                                        mean_q_loss] )
+
+            # plot epoch avg loss to tensorboard server
+            if self.plot_tensorboard:
+                self.tb_writer.add_scalar(f'Loss/pi_loss', mean_pi_loss, epoch+self.last_epoch)
+                self.tb_writer.add_scalar(f'Loss/Q_Loss', mean_q_loss, epoch+self.last_epoch)
+
+                self.tb_writer.add_scalar('Score', mean_score, epoch+self.last_epoch)
+                self.tb_writer.add_scalar('Timesteps', mean_timesteps, epoch+self.last_epoch)                                        
+
+            # clean data buffer
+            self.reset_data_buffer()
             # print training data
-            # new best score
-            if self.data['score'][-1]>self.best_score:
-                self.best_score=self.data['score'][-1]
-            if epoch%self.print_rate==0 and len(self.data['pi_loss'])>=self.print_rate:
-                # compute average values
-                mean_pi_loss = sum(self.data['pi_loss'][-self.print_rate:])/self.print_rate
-                mean_q_loss = sum(self.data['q_loss'][-self.print_rate:])/self.print_rate 
-                if len(self.data['score']) <101:
-                    mean_score = sum(self.data['score'])/len(self.data['score'])
-                else:
-                    mean_score = sum(self.data['score'][-100:-1])/len(self.data['score'][-100:-1])
-                    
-                
-                # just to print
-                if verbose:            
-                    print(f"epoch: {self.last_epoch+epoch}, t: {self.data['sim_timesteps'][-1]}, s: {self.data['score'][-1]:.1f}, avg_s: {mean_score:.1f}, best_s: {self.best_score:.1f}, pi_l: {mean_pi_loss:.2f}, q_l: {mean_q_loss:.2f}") 
-                    print(f"")  
+            #if epoch%self.print_rate==0 and verbose:
+                #print(f"epoch: {self.last_epoch+epoch}, t: {self.data['sim_timesteps']}, s: {self.data['score']:.1f}, pi_l: {mean_pi_loss:.2f}, q_l: {mean_q_loss:.2f}") 
+                #print(f"")  
 
     def reset_data_buffer(self):
         # clean data buffer
+        self.data['sim_timesteps'] = []
+        self.data['score'] = []
         self.data['pi_loss'] = []
-        self.data['q_loss'] = []
-        self.data['score'] = []   
-        self.data['sim_timesteps']=[]         
+        self.data['q_loss'] = []         
         # close file
         self.close_csv_handle()
         # open file
         self.open_csv_handle()
-        print_info(f"training data in {self.data_path}")
-
-
-
-    def print_training_data(self):
-        # read .text file
-        new_df = pd.read_csv(self.data_path)
-
-        fig, axs = plt.subplots(3)
-        axs[0].set(xlabel='timesteps', ylabel='pi_loss')
-        axs[0].plot(new_df['pi_loss'])
-        axs[1].set(xlabel='timesteps', ylabel='q_loss')        
-        axs[1].plot(new_df['q_loss'])
-        axs[2].set(xlabel='timesteps', ylabel='reward')        
-        axs[2].plot(new_df['score'])        
-        plt.show()
+        #print_info(f"training data in {self.data_path}")

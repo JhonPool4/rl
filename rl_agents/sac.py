@@ -15,22 +15,27 @@ class SAC():
                 mem_size=20000, 
                 batch_size=1000, 
                 gamma=0.98, 
-                alpha=1.0, 
+                alpha=1.0,
+                tau = 0.1, 
                 dir_name='./task/agent',
-                save_rate=100,
-                print_rate=10,
-                start_lr = 1e-3,
+                save_model_rate=100,
+                save_logger_rate = 5,
                 load_model=False,
-                hidden_layers=list()):
+                last_agent_epoch=None,
+                hidden_layers=list(),
+                plot_tensorboard = False):
         
         self.batch_size = batch_size
         self.gamma = gamma # discount factor
         self.alpha = alpha # temperature
+        self.tau = tau # transfer learning factor
         self.env = env # RL environment
         self.obs_dim = self.env.observation_space.shape[0] # number of observations
         self.act_dim = self.env.action_space.shape[0] # number of actions
         self.save_path = os.path.join(os.getcwd(), 'trained_models', dir_name) # directory to save training data
-        self.save_rate = save_rate # number of epochs to save agent parameters
+        self.save_model_rate = save_model_rate # number of epochs to save agent parameters
+        self.save_logger_rate = save_logger_rate # number of epochts to save the logger data
+        self.plot_tensorboard = plot_tensorboard # shows traning data in tensorboard
 
         print(f"============================================")
         print(f"\tInitializing agent parameters")
@@ -43,15 +48,14 @@ class SAC():
         # create buffer
         self.mem_buffer = MemoryBuffer(self.obs_dim, self.act_dim, mem_size, batch_size, load_model, self.save_path)
         # create logger
-        column_names = ['epoch','score', 'pi_loss', 'q_loss', 'sim_timesteps']
-        self.logger = Logger(column_names, self.save_path, print_rate=print_rate, save_rate=save_rate, resume_training=load_model)
+        self.logger = Logger(self.save_path, save_rate=self.save_logger_rate, resume_training=load_model, plot_tensorboard=self.plot_tensorboard)
 
         # create Q networks: (i) target and (ii) predict
-        self.q_target = DoubleQNetwork(self.obs_dim, self.act_dim, hidden_layers)
-        self.q_predict = DoubleQNetwork(self.obs_dim, self.act_dim, hidden_layers,lr=start_lr)
+        self.q_target = DoubleQNetwork(self.obs_dim, self.act_dim, hidden_layers, lr=1e-4)
+        self.q_predict = DoubleQNetwork(self.obs_dim, self.act_dim, hidden_layers, lr=1e-4)
 
         # create policy
-        self.pi_net = GaussianPolicyNetwork(self.obs_dim, self.act_dim, env.action_space, hidden_layers,lr=start_lr)
+        self.pi_net = GaussianPolicyNetwork(self.obs_dim, self.act_dim, env.action_space, hidden_layers, lr=1e-4)
 
         # automatic entropy
         self.target_entropy = -torch.prod(torch.Tensor(env.action_space.shape))
@@ -60,13 +64,15 @@ class SAC():
 
         # resume training
         if load_model:
-            self.load_agent_parameters(load_path=self.save_path, last_epoch=self.logger.last_epoch)
+            if last_agent_epoch is not None: # to load an spefici epoch-version agent
+                self.load_agent_parameters(load_path=self.save_path, last_epoch=last_agent_epoch)
+            else:
+                self.load_agent_parameters(load_path=self.save_path, last_epoch=self.logger.last_epoch)
             self.alpha=self.log_alpha.exp() 
 
         #params for modifying the lr during training
-        
-        self.scheduler_pi =torch.optim.lr_scheduler.ReduceLROnPlateau(self.pi_net.optimizer, mode='max', factor=0.5, patience=500, threshold=10, threshold_mode='abs', cooldown=500, min_lr=1e-4, verbose=True)
-        self.scheduler_Q = torch.optim.lr_scheduler.ReduceLROnPlateau(self.q_predict.optimizer, mode='max', factor=0.5, patience=500, threshold=10, threshold_mode='abs', cooldown=500, min_lr=1e-4, verbose=True)
+        #self.scheduler_pi =torch.optim.lr_scheduler.ReduceLROnPlateau(self.pi_net.optimizer, mode='max', factor=0.5, patience=500, threshold=10, threshold_mode='abs', cooldown=500, min_lr=1e-4, verbose=True)
+        #self.scheduler_Q = torch.optim.lr_scheduler.ReduceLROnPlateau(self.q_predict.optimizer, mode='max', factor=0.5, patience=500, threshold=10, threshold_mode='abs', cooldown=500, min_lr=1e-4, verbose=True)
 
     def save_agent_parameters(self, save_path, epoch):
         new_model_save_path = os.path.join(save_path,'agent_parameters', str(epoch))
@@ -85,7 +91,7 @@ class SAC():
 
     def load_agent_parameters(self, load_path, last_epoch):
         # compute name (epoch) of the last model
-        epoch = self.save_rate*int(last_epoch/self.save_rate)
+        epoch = self.save_model_rate*int(last_epoch/self.save_model_rate)
         last_model_load_path = os.path.join(load_path,'agent_parameters', str(epoch))
         
         # load parameters of last model
@@ -103,21 +109,8 @@ class SAC():
     def update_agent_parameters(self):
         # sample a transition (obs, act, reward, new_obs, done)
         obs, act, r, next_obs, done = self.mem_buffer.sample_memory(self.batch_size)  
-        
-        #print(f"obs: {obs.size()}")
-        #print(f"act: {act.size()}")
-        #print(f"r: {r.size()}")
-        #print(f"new_obs: {next_obs.size()}")
-        #print(f"done: {done.size()}")
-        
 
         with torch.no_grad():
-            # from numpy to torch.tensor
-            #act = torch.tensor(act) #.reshape(self.batch_size, 1)
-            #obs = torch.tensor(obs)
-            #r = torch.tensor(reward)
-            #next_obs = torch.tensor(next_obs)
-            #mask = torch.logical_not(torch.tensor(done)).reshape((-1,1))
             mask = torch.logical_not(done)
 
             # compute TD target
@@ -157,30 +150,24 @@ class SAC():
     
 
 
-    def learn(self, n_epochs, verbose=False, pulse_frequency_steps = None, plot_tensorboard = False,lr=1e-3):       
+    def learn(self, n_epochs, verbose=False):       
         print(f"================================")
         print(f"\tStarting Training")
         print(f"================================")
         # same networks
         self.update_target_networks(tau=1)
-        if plot_tensorboard:
-            writer = SummaryWriter()
+
+
         
             
         for epoch in range(1,n_epochs+1):
             # reset environment
-            obs, reward, done = self.env.reset(current_epoch=epoch,verbose=verbose), 0, False
+            obs, reward, done = self.env.reset(), 0, False
             score = 0
-            
             
             while not done:
                 # get action
-                if pulse_frequency_steps is not None:
-                    env_steps = self.env.get_sim_timesteps()
-                    if env_steps % pulse_frequency_steps == 0:
-                        act, _ = self.pi_net.predict_action(torch.tensor(obs, dtype=torch.float32)) 
-                else:
-                    act, _ = self.pi_net.predict_action(torch.tensor(obs, dtype=torch.float32)) 
+                act, _ = self.pi_net.predict_action(torch.tensor(obs, dtype=torch.float32)) 
                 # interact with the environment
                 new_obs, reward, done, info = self.env.step(act.detach().numpy())
                 # store transition in memory
@@ -193,46 +180,47 @@ class SAC():
                 # update network paramteres: q_predict(critic) and pi_net(actor) 
                 if self.mem_buffer.allow_sample:
                     self.update_agent_parameters()
-                    self.update_target_networks(tau=0.05) 
-                    #self.change_all_nn_lr(epoch+self.logger.last_epoch)
+                    self.update_target_networks(tau=self.tau) 
                 
-            if self.mem_buffer.allow_sample and len(self.logger.data['score'])>10:
-                last_avg_score = sum(self.logger.data['score'][-10:-1])/len(self.logger.data['score'][-10:-1])
-                self.scheduler_Q.step(last_avg_score)
-                self.scheduler_pi.step(last_avg_score)
+            #if self.mem_buffer.allow_sample and len(self.logger.data['score'])>10:
+                #last_avg_score = sum(self.logger.data['score'][-10:-1])/len(self.logger.data['score'][-10:-1])
+                #self.scheduler_Q.step(last_avg_score)
+                #self.scheduler_pi.step(last_avg_score)
                 
-            # plot epoch avg loss to tensorboard server
-            if plot_tensorboard and len(self.logger.data['pi_loss'])>0:
-                writer.add_scalar(f'Loss/pi_loss', self.logger.data['pi_loss'][-1], epoch+self.logger.last_epoch)
-                writer.add_scalar(f'Loss/Q_Loss', self.logger.data['q_loss'][-1], epoch+self.logger.last_epoch)
-                if len(self.logger.data['score'])<11:
-                    writer.add_scalar('Score', score, epoch+self.logger.last_epoch)
-                else:
-                    writer.add_scalar('Score', last_avg_score, epoch+self.logger.last_epoch)
-                for name, param in self.pi_net.named_parameters():
-                    writer.add_scalar('pi_net_params/'+ name, param.data.mean(), epoch+self.logger.last_epoch)
-                for name, param in self.q_predict.named_parameters():
-                    writer.add_scalar('Q_predict_params/'+ name, param.data.mean(), epoch+self.logger.last_epoch)
-                writer.add_scalar('Learing Rate Pi', self.pi_net.optimizer.param_groups[0]['lr'], epoch+self.logger.last_epoch)
-                writer.add_scalar('Learing Rate Q', self.q_predict.optimizer.param_groups[0]['lr'], epoch+self.logger.last_epoch)
-            print(f"Final elbow angle = {np.rad2deg(self.env.obs_dict['r_elbow_pos'])}")
 
 
      
             # just to print data
-            self.logger.data['score'].append(score)
-            self.logger.data['sim_timesteps'].append(info['sim_timesteps'])
-            self.logger.print_data_buf(epoch=epoch, verbose=verbose)
+            if self.mem_buffer.allow_sample:
+                self.logger.data['score'].append(score)
+                self.logger.data['sim_timesteps'].append(info['sim_timesteps'])
+                # to compute mean pi_loss and q_loss
+                self.logger.end_episode(epoch=epoch)
+            
 
-            # save neural network parameters
-            if (epoch+self.logger.last_epoch)%self.save_rate==0:
-                self.save_agent_parameters(save_path=self.save_path, epoch=epoch+self.logger.last_epoch)
-                self.logger.reset_data_buffer()
-                self.mem_buffer.save_memory_buffer()        
-            #self.logger.print_training_data()
+                # save neural network parameters and buffer
+                if (epoch+self.logger.last_epoch)%self.save_model_rate==0:
+                    self.save_agent_parameters(save_path=self.save_path, epoch=epoch+self.logger.last_epoch)
+                    self.mem_buffer.save_memory_buffer()        
 
+                # plot epoch avg loss to tensorboard server
+                #if plot_tensorboard:
+                #    writer.add_scalar(f'Loss/pi_loss', self.logger.data['pi_loss'][-1], epoch+self.logger.last_epoch)
+                #    writer.add_scalar(f'Loss/Q_Loss', self.logger.data['q_loss'][-1], epoch+self.logger.last_epoch)
+                    #if len(self.logger.data['score'])<11:
+                #    writer.add_scalar('Score', score, epoch+self.logger.last_epoch)
+                #    writer.add_scalar('Timesteps', score, epoch+self.logger.last_epoch)
+                    #else:
+                    #    writer.add_scalar('Score', last_avg_score, epoch+self.logger.last_epoch)
+                    #for name, param in self.pi_net.named_parameters():
+                    #    writer.add_scalar('pi_net_params/'+ name, param.data.mean(), epoch+self.logger.last_epoch)
+                    #for name, param in self.q_predict.named_parameters():
+                    #    writer.add_scalar('Q_predict_params/'+ name, param.data.mean(), epoch+self.logger.last_epoch)
+                    #writer.add_scalar('Learing Rate Pi', self.pi_net.optimizer.param_groups[0]['lr'], epoch+self.logger.last_epoch)
+                    #writer.add_scalar('Learing Rate Q', self.q_predict.optimizer.param_groups[0]['lr'], epoch+self.logger.last_epoch)
+                #print(f"Final elbow angle = {np.rad2deg(self.env.obs_dict['r_elbow_pos'])}")
 
-    def test(self, n_attemps, verbose=False,pulse_frequency_steps = None):
+    def test(self, n_attemps, verbose=False):
         print(f"============================")
         print(f"\tstarting test")
         print(f"============================")        
@@ -242,13 +230,7 @@ class SAC():
             score = 0                
             print(len(obs))
             while not done:
-                # get action
-                if pulse_frequency_steps is not None:
-                        env_steps = self.env.get_sim_timesteps()
-                        if env_steps % pulse_frequency_steps == 0:
-                            act, _ = self.pi_net.predict_action(torch.tensor(obs, dtype=torch.float32)) 
-                else:
-                    act, _ = self.pi_net.predict_action(torch.tensor(obs, dtype=torch.float32)) 
+                act, _ = self.pi_net.predict_action(torch.tensor(obs, dtype=torch.float32)) 
                 # interact with the environment
                 new_obs, reward, done, info = self.env.step(act.detach().numpy())
                 
