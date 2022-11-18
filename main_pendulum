@@ -1,0 +1,45 @@
+#import gym
+from rl_agents import SAC
+from envs import PendulumEnv
+
+env = PendulumEnv(render_flag = False, sim_time=3, step_size = 1e-2)
+
+
+# create agent
+agent = SAC(env=env, 
+            mem_size=1000, 
+            batch_size=50, 
+            gamma=0.99, 
+            alpha=1.0,
+            tau = 0.1, 
+            dir_name='pendulum\\pd', 
+            save_model_rate=50, 
+            save_logger_rate=10, 
+            load_model=True,
+            hidden_layers=(32,16,8),
+            plot_tensorboard=True)
+
+
+# train agent
+agent.learn(n_epochs=1000, verbose=True)
+
+
+
+#plt.plot(Y, '--ro')
+
+"""
+import numpy as np
+
+# test
+attemps = 1
+# reset environment
+obs, score, done, _ = env.reset(), 0, False, {}
+
+while not done:
+    #angle = math.atan2(obs[1], obs[0])
+    #tau = (1/3)*(25*(np.pi/2 - obs[3]) - 10*obs[2] ) + 9.81/2*np.sin(obs[3])
+    #tau = 9*(np.pi/2 - obs[3]) - 6*obs[2] 
+    obs, score, done, info = env.step(tau)
+    
+    print(f"angle: {np.rad2deg(obs[3]):.2f}, steps: {info['sim_timesteps']}, tau: {tau}")
+"""
